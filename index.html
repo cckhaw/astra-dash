@@ -17,6 +17,7 @@
         <div class="pill"><span class="lbl">SCORE</span><b id="h-score">000000</b></div>
         <div class="pill"><span class="ico heart">♥</span><b id="h-lives">3</b></div>
         <div class="pill"><span class="lbl">TIME</span><b id="h-time">000</b></div>
+        <div class="pill wide"><span class="lbl">WORLD</span><b id="h-world">1/5</b></div>
         <div class="pill wide"><span class="lbl">BEST</span><b id="h-high">000000</b></div>
         <span class="spacer"></span>
         <button id="btn-mute" class="round" aria-label="Toggle sound">♪</button>
@@ -30,6 +31,7 @@
     <div id="toast"></div>
 
     <div id="touch">
+      <div id="stick-zone"></div>
       <div id="dpad"><span class="a u">▲</span><span class="a d">▼</span><span class="a l">◀</span><span class="a r">▶</span><div id="dpad-nub"></div></div>
       <button id="btn-slam" class="tbtn">SLAM</button>
       <button id="btn-jump" class="tbtn">JUMP</button>
@@ -46,8 +48,16 @@
           <div><kbd>Space</kbd> jump · press again to double jump</div>
           <div><kbd>Shift</kbd> ground-pound in mid-air</div>
           <div><kbd>Q</kbd><kbd>E</kbd> or drag to turn camera · <kbd>P</kbd> pause · <kbd>M</kbd> mute</div>
-          <div class="touch-only">Touch: D-pad to move, JUMP / SLAM buttons, drag the view to turn</div>
+          <div class="touch-only">Touch: slide your left thumb anywhere to move · JUMP and SLAM on the right · the camera follows you · landscape is roomiest</div>
         </div>
+      </div>
+    </div>
+    <div id="screen-story" class="screen hidden">
+      <div class="card story">
+        <p class="chapter" id="s-chapter">World 1 of 5</p>
+        <h2 id="s-title">Green Valley</h2>
+        <div id="s-text"></div>
+        <button class="big" data-action="begin">LET'S GO!</button>
       </div>
     </div>
     <div id="screen-pause" class="screen hidden">
@@ -56,6 +66,8 @@
     <div id="screen-complete" class="screen hidden">
       <div class="card">
         <h2 id="c-title">Course clear!</h2>
+        <p class="sparks" id="c-sparks"></p>
+        <div id="c-outro"></div>
         <p>Time bonus <b id="c-bonus">0</b></p>
         <p>Score <b id="c-score">0</b> · Best <b id="c-high">0</b></p>
         <button class="big" data-action="next" id="c-next">NEXT WORLD</button>

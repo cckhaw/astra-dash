@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEVELS } from './levels.js';
+import { LEVELS, INTRO, OUTRO } from './levels.js';
 import * as M from './models.js';
 import { audio } from './audio.js';
 import { input, clearEdges } from './input.js';
@@ -14,6 +14,7 @@ const EPS = 0.001;
 const WATER_Y = -9;
 const HS_KEY = 'astra-dash-highscore';
 const POWER_TIME = 12;
+const START_LIVES = 5;
 
 const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
 
@@ -37,7 +38,7 @@ export class Game {
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.6);
     this.sun = new THREE.DirectionalLight(0xffffff, 2.2);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(input.touch ? 1024 : 2048, input.touch ? 1024 : 2048);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -24;
     sc.right = sc.top = 24;
@@ -56,7 +57,7 @@ export class Game {
     this.levelIndex = 0;
     this.score = 0;
     this.coins = 0;
-    this.lives = 3;
+    this.lives = START_LIVES;
     this.high = loadHighScore();
     this.time = 0;
     this.clock = 0;
@@ -91,7 +92,7 @@ export class Game {
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, input.touch ? 1.5 : 2));
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.fov = w < h ? 72 : 55;
@@ -262,17 +263,25 @@ export class Game {
   startGame() {
     this.score = 0;
     this.coins = 0;
-    this.lives = 3;
-    this.loadLevel(0);
-    this.state = 'playing';
-    audio.startMusic();
-    this.ui.screen(null);
-    this.ui.toast(`World 1 — ${LEVELS[0].name}`);
+    this.lives = START_LIVES;
+    this.enterLevel(0);
   }
 
   nextLevel() {
     if (this.levelIndex + 1 >= LEVELS.length) return this.startGame();
-    this.loadLevel(this.levelIndex + 1);
+    this.enterLevel(this.levelIndex + 1);
+  }
+
+  // Load a world and show its story card; play starts on beginLevel().
+  enterLevel(index) {
+    this.loadLevel(index);
+    this.state = 'story';
+    const def = LEVELS[index];
+    this.ui.screen('story', { world: index + 1, total: LEVELS.length, name: def.name, intro: index === 0 ? INTRO : null, text: def.story });
+  }
+
+  beginLevel() {
+    if (this.state !== 'story') return;
     this.state = 'playing';
     audio.startMusic();
     this.ui.screen(null);
@@ -352,7 +361,8 @@ export class Game {
       this.syncHud(true);
       this.ui.screen('complete', {
         name: LEVELS[this.levelIndex].name, bonus, score: this.score, high: this.high,
-        last: this.levelIndex + 1 >= LEVELS.length,
+        last: this.levelIndex + 1 >= LEVELS.length, sparks: this.levelIndex + 1, total: LEVELS.length,
+        outro: this.levelIndex + 1 >= LEVELS.length ? OUTRO : null,
       });
     }, 1700);
   }
@@ -478,7 +488,7 @@ export class Game {
     p.speedPower = Math.max(0, p.speedPower - dt);
     p.coyote -= dt;
     p.buffer -= dt;
-    if (input.jumpPressed) p.buffer = 0.13;
+    if (input.jumpPressed) p.buffer = input.touch ? 0.2 : 0.13;
 
     // Camera-relative steering with acceleration + damping.
     const yaw = this.cam.yaw;
@@ -556,7 +566,7 @@ export class Game {
       p.grounded = true;
       p.ground = p.landed;
       p.vel.y = 0;
-      p.coyote = 0.1;
+      p.coyote = input.touch ? 0.18 : 0.1;
       p.jumps = 0;
       p.cut = true;
       if (p.pounding) this.poundImpact();
@@ -603,7 +613,7 @@ export class Game {
       const dx = c.pos.x - p.pos.x;
       const dz = c.pos.z - p.pos.z;
       const dy = c.pos.y - cy;
-      if (dx * dx + dz * dz < 0.85 && Math.abs(dy) < 1.15) this.collect(c);
+      if (dx * dx + dz * dz < 1.1 && Math.abs(dy) < 1.2) this.collect(c);
     }
     this.pickups = this.pickups.filter((c) => !c.gone);
 
@@ -710,11 +720,53 @@ export class Game {
       mesh.position.copy(top);
       this.level.add(mesh);
       audio.itemAppear();
-      const item = { type: s.content, mesh, pos: mesh.position, phase: 0, ready: false, baseY: top.y + 0.75 };
+      const item = { type: s.content, mesh, pos: mesh.position, phase: 0, ready: false, settled: false, baseY: top.y + 0.75 };
       this.pickups.push(item);
-      this.tween(0.4, (k) => (mesh.position.y = top.y + k * 0.75), () => (item.ready = true));
+      // Hit from below: the item hops off the block and lands on the
+      // ground next to it, on the player's side, so it is easy to grab.
+      const land = this.p.pos.y < s.max.y - 0.2 ? this.itemLanding(s) : null;
+      this.tween(0.35, (k) => (mesh.position.y = top.y + k * 0.75), () => {
+        item.ready = true;
+        if (!land) return (item.settled = true);
+        const from = mesh.position.clone();
+        this.tween(0.6, (k) => {
+          mesh.position.x = from.x + (land.x - from.x) * k;
+          mesh.position.z = from.z + (land.z - from.z) * k;
+          mesh.position.y = from.y + (land.y - from.y) * k + Math.sin(k * Math.PI) * 1.1;
+        }, () => {
+          item.baseY = land.y;
+          item.settled = true;
+        });
+      });
     }
     if (s.left <= 0) s.mesh.material = M.usedBlockMaterial();
+  }
+
+  // Find a safe spot on the ground beside a block for an item to land.
+  itemLanding(s) {
+    const cx = (s.min.x + s.max.x) / 2;
+    const cz = (s.min.z + s.max.z) / 2;
+    let dx = this.p.pos.x - cx;
+    let dz = this.p.pos.z - cz;
+    if (Math.hypot(dx, dz) < 0.3) {
+      dx = Math.sin(this.cam.yaw);
+      dz = Math.cos(this.cam.yaw);
+    }
+    const base = Math.atan2(dx, dz);
+    for (const turn of [0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4, Math.PI]) {
+      const x = cx + Math.sin(base + turn) * 1.8;
+      const z = cz + Math.cos(base + turn) * 1.8;
+      let floor = -Infinity;
+      let blocked = false;
+      for (const o of this.solids) {
+        if (x < o.min.x + 0.3 || x > o.max.x - 0.3 || z < o.min.z + 0.3 || z > o.max.z - 0.3) continue;
+        if (o.kind || o.delta) blocked = true;
+        else if (o.max.y <= s.min.y && o.max.y > floor) floor = o.max.y;
+      }
+      const lava = this.lavas.some((l) => x > l.minX - 0.5 && x < l.maxX + 0.5 && z > l.minZ - 0.5 && z < l.maxZ + 0.5 && Math.abs(l.y - floor) < 0.5);
+      if (!blocked && !lava && floor > -Infinity && s.min.y - floor < 6) return new THREE.Vector3(x, floor + 0.75, z);
+    }
+    return null;
   }
 
   collect(c) {
@@ -743,7 +795,7 @@ export class Game {
     const t = this.clock;
     for (const c of this.pickups) {
       c.mesh.rotation.y = t * 3 + c.phase;
-      if (c.type !== 'coin' && c.ready) c.mesh.position.y = c.baseY + Math.sin(t * 3) * 0.12;
+      if (c.type !== 'coin' && c.settled) c.mesh.position.y = c.baseY + Math.sin(t * 3) * 0.12;
     }
     for (const s of this.slimes) {
       if (!s.alive) continue;
@@ -799,7 +851,7 @@ export class Game {
   animateHero(dt) {
     const p = this.p;
     const h = this.hero;
-    const { body, armL, armR, legL, legR, tip } = h.userData.parts;
+    const { body, armL, armR, legL, legR, tip, tails, eyes, head } = h.userData.parts;
     h.position.copy(p.pos);
     h.rotation.y = p.facing;
     h.visible = this.state !== 'gameover' && (p.invuln <= 0 || Math.floor(this.clock * 18) % 2 === 0);
@@ -813,6 +865,14 @@ export class Game {
     body.rotation.x = p.flip > 0 ? (1 - p.flip) * Math.PI * 2 : p.grounded ? Math.min(0.22, speed * 0.025) : 0;
     body.position.y = p.flip > 0 ? Math.sin((1 - p.flip) * Math.PI) * 0.2 : 0;
     tip.rotation.y += dt * 4;
+    const blink = this.clock % 3.4 < 0.12 ? 0.12 : 1;
+    eyes.forEach((e) => (e.scale.y = blink));
+    const flutter = Math.min(1, speed / 8) + (p.grounded ? 0 : 0.6);
+    tails.forEach((t, i) => {
+      t.rotation.x = -0.9 + flutter * 0.75 + Math.sin(this.clock * 9 + i * 1.7) * (0.08 + flutter * 0.18);
+      t.rotation.y = Math.sin(this.clock * 6 + i * 2.1) * 0.2;
+    });
+    head.rotation.x = p.grounded ? Math.sin(this.clock * 2.5) * 0.03 : p.vel.y > 0 ? -0.18 : 0.12;
     if (p.pounding) {
       legL.rotation.x = legR.rotation.x = -1.2;
       armL.rotation.x = armR.rotation.x = Math.PI;
@@ -851,7 +911,12 @@ export class Game {
   updateCamera(dt) {
     const p = this.p;
     const c = this.cam;
-    if (this.state === 'playing') c.yaw += -input.camDrag * 0.006 - input.camTurn * dt * 2.2;
+    if (this.state === 'playing') {
+      c.yaw += -input.camDrag * 0.006 - input.camTurn * dt * 2.2;
+      // On touch screens the camera swings behind the direction of travel
+      // by itself, so one thumb is enough to steer.
+      if (input.touch) c.yaw -= input.x * dt * 1.15;
+    }
     // Lagged follow: horizontal tracks quickly, vertical eases to avoid
     // bobbing with every jump.
     const k = damp(7, dt);
@@ -876,7 +941,7 @@ export class Game {
     if (!force && this.hudT % 6) return;
     this.ui.hud({
       coins: this.coins, score: this.score, lives: this.lives, time: Math.max(0, Math.ceil(this.time)),
-      high: this.high, world: `${this.levelIndex + 1}`, jump: this.p.jumpPower / POWER_TIME, speed: this.p.speedPower / POWER_TIME,
+      high: this.high, world: `${this.levelIndex + 1}/${LEVELS.length}`, jump: this.p.jumpPower / POWER_TIME, speed: this.p.speedPower / POWER_TIME,
     });
   }
 }

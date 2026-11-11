@@ -5,7 +5,8 @@ import { initInput } from './input.js';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n, len) => String(n).padStart(len, '0');
-const screens = ['menu', 'pause', 'complete', 'gameover'];
+const screens = ['menu', 'story', 'pause', 'complete', 'gameover'];
+const paragraphs = (el, lines) => el.replaceChildren(...(lines || []).map((t) => Object.assign(document.createElement('p'), { textContent: t })));
 let toastTimer;
 
 const ui = {
@@ -16,6 +17,7 @@ const ui = {
     $('h-time').textContent = pad(s.time, 3);
     $('h-time').classList.toggle('warn', s.time <= 30);
     $('h-high').textContent = pad(s.high, 6);
+    $('h-world').textContent = s.world;
     $('menu-high').textContent = s.high;
     for (const k of ['jump', 'speed']) {
       const el = $(`pw-${k}`);
@@ -27,8 +29,16 @@ const ui = {
     for (const s of screens) $(`screen-${s}`).classList.toggle('hidden', s !== name);
     $('hud').classList.toggle('hidden', name === 'menu');
     document.body.classList.toggle('in-game', name === null);
+    if (name === 'story') {
+      $('s-chapter').textContent = `World ${info.world} of ${info.total}`;
+      $('s-title').textContent = info.name;
+      paragraphs($('s-text'), [...(info.intro || []), ...info.text]);
+      $('screen-story').scrollTop = 0;
+    }
     if (name === 'complete') {
-      $('c-title').textContent = info.last ? 'You cleared every world!' : `${info.name} clear!`;
+      $('c-sparks').textContent = `${'★'.repeat(info.sparks)}${'☆'.repeat(info.total - info.sparks)}  Star Spark ${info.sparks} of ${info.total} recovered`;
+      paragraphs($('c-outro'), info.outro);
+      $('c-title').textContent = info.last ? 'The Comet flies again!' : `${info.name} clear!`;
       $('c-bonus').textContent = `+${info.bonus}`;
       $('c-score').textContent = info.score;
       $('c-high').textContent = info.high;
@@ -63,11 +73,13 @@ document.addEventListener('click', (e) => {
   if (action === 'start') game.startGame();
   if (action === 'resume') game.togglePause();
   if (action === 'next') game.nextLevel();
+  if (action === 'begin') game.beginLevel();
 });
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Enter' && e.code !== 'Space') return;
   audio.unlock();
   if (game.state === 'menu' || game.state === 'gameover') game.startGame();
+  else if (game.state === 'story') game.beginLevel();
   else if (game.state === 'complete' && !$('screen-complete').classList.contains('hidden')) game.nextLevel();
 });
 $('btn-pause').addEventListener('click', () => game.togglePause());
