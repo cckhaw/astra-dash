@@ -12,7 +12,7 @@ A responsive low-poly 3D platformer for the browser, built with [Three.js](https
 | Turn camera | `Q` `E` or drag | drag the view |
 | Pause / mute | `P` / `M` | HUD buttons |
 
-Cross three floating-island worlds, hit `?` blocks from below (or pound them from above) for coins and Super Jump / Turbo Dash power-ups, stomp slimes, avoid lava, and reach the flagpole before the timer runs out. 100 coins earn an extra life; the best score is kept in `localStorage`.
+Cross five worlds that start on solid ground (with shallow rivers that only cost a splash) and build up to floating-island courses, hit `?` blocks from below (or pound them from above) for coins and Super Jump / Turbo Dash power-ups, stomp slimes, avoid lava, and reach the flagpole before the timer runs out. 100 coins earn an extra life; the best score is kept in `localStorage`.
 
 ## Develop
 

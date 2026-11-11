@@ -125,6 +125,8 @@ export class Game {
     this.sun.color.set(theme.sun);
     this.hemi.intensity = 1.6 * theme.ambient;
 
+    this.waterY = def.waterY ?? WATER_Y;
+    this.safeWater = !!def.safeWater;
     def.build(this.builder());
 
     // Scenery: sea, clouds, rainbow, far-off islets.
@@ -132,7 +134,7 @@ export class Game {
       new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2),
       new THREE.MeshLambertMaterial({ color: theme.water, transparent: true, opacity: 0.92 }),
     );
-    water.position.set(0, WATER_Y, -40);
+    water.position.set(0, this.waterY, -40);
     water.receiveShadow = true;
     this.level.add(water);
     this.clouds = [];
@@ -145,14 +147,17 @@ export class Game {
     }
     if (theme.rainbow) {
       const r = M.makeRainbow();
-      r.position.set(-10, WATER_Y, -150);
+      r.position.set(-10, this.waterY, -150);
       this.level.add(r);
     }
     for (let i = 0; i < 9; i++) {
       const s = 4 + Math.random() * 6;
       const side = i % 2 ? 1 : -1;
-      const isle = M.makeIsland(s, 3 + Math.random() * 5, s, theme);
-      isle.position.set(side * (26 + Math.random() * 30), -4 + Math.random() * 8, 10 - i * 11);
+      const ih = 3 + Math.random() * 5;
+      const isle = M.makeIsland(s, ih, s, theme);
+      // Land courses get hills rising from the water; sky courses get floating islets.
+      const iy = def.land ? this.waterY + ih / 2 - 1 : -4 + Math.random() * 8;
+      isle.position.set(side * (26 + Math.random() * 30), iy, 10 - i * 11);
       this.level.add(isle);
       if (i % 3 === 0) {
         const t = M.makeTree(theme);
@@ -163,6 +168,7 @@ export class Game {
 
     this.time = def.time;
     this.respawn(true);
+    this.safeAt = this.spawnPoint.clone();
     this.cam.yaw = 0;
     this.cam.target.copy(this.p.pos);
     this.syncHud(true);
@@ -563,8 +569,24 @@ export class Game {
     }
 
     // Hazards.
-    if (p.pos.y < WATER_Y + 0.3) {
+    // Remember the last solid footing well inside a ledge, so a dunk in
+    // shallow water can put the player back on the bank.
+    const gs = p.ground;
+    if (p.grounded && gs && !gs.kind && !gs.delta && gs.mesh &&
+      p.pos.x > gs.min.x + 0.8 && p.pos.x < gs.max.x - 0.8 && p.pos.z > gs.min.z + 0.8 && p.pos.z < gs.max.z - 0.8) {
+      this.safeAt.copy(p.pos);
+    }
+    if (p.pos.y < this.waterY + 0.3) {
       this.burst(p.pos, 0xffffff, 14, 6);
+      if (this.safeWater) {
+        audio.splash();
+        this.ui.toast('Splash!');
+        const keep = { jumpPower: p.jumpPower, speedPower: p.speedPower, facing: p.facing };
+        Object.assign(p, this.newPlayer(), keep);
+        p.pos.copy(this.safeAt);
+        p.invuln = 1.2;
+        return;
+      }
       return this.loseLife(true);
     }
     for (const l of this.lavas) {
