@@ -6,13 +6,15 @@ A responsive low-poly 3D platformer for the browser, built with [Three.js](https
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Move | `W` `A` `S` `D` / arrows | D-pad |
+| Move | `W` `A` `S` `D` / arrows | slide left thumb anywhere |
 | Jump / double jump (hold for height) | `Space` | JUMP |
 | Ground-pound (in mid-air) | `Shift` | SLAM |
-| Turn camera | `Q` `E` or drag | drag the view |
+| Turn camera | `Q` `E` or drag | follows you automatically; drag to adjust |
 | Pause / mute | `P` / `M` | HUD buttons |
 
-Cross five worlds that start on solid ground (with shallow rivers that only cost a splash) and build up to floating-island courses, hit `?` blocks from below (or pound them from above) for coins and Super Jump / Turbo Dash power-ups, stomp slimes, avoid lava, and reach the flagpole before the timer runs out. 100 coins earn an extra life; the best score is kept in `localStorage`.
+Cross five worlds that start on solid ground (with shallow rivers that only cost a splash) and build up to floating-island courses, hit `?` blocks from below (or pound them from above) for coins and Super Jump / Turbo Dash power-ups, which hop down to the ground beside the block, stomp slimes, avoid lava, and reach the flagpole before the timer runs out. 100 coins earn an extra life; the best score is kept in `localStorage`.
+
+Each world opens with a short story card: Astra the star-scout is recovering the five Star Sparks shaken out of the Comet's engine, one per world.
 
 ## Develop
 

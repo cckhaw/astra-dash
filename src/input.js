@@ -79,33 +79,51 @@ export function initInput(canvas) {
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
-  // Touch D-pad: behaves like a pad but reads the finger offset so
-  // diagonals work naturally.
+  // Floating thumb-stick: touch anywhere on the left half of the screen
+  // and the pad appears under the thumb. It follows the thumb if dragged
+  // past its rim, so it never has to be found by feel.
+  const zone = document.getElementById('stick-zone');
   const pad = document.getElementById('dpad');
   const nub = document.getElementById('dpad-nub');
   let padId = null;
+  let cx = 0;
+  let cy = 0;
+  const placePad = () => {
+    const half = pad.offsetWidth / 2;
+    pad.style.left = `${cx - half}px`;
+    pad.style.top = `${cy - half}px`;
+    pad.style.bottom = 'auto';
+  };
   const padMove = (e) => {
-    const r = pad.getBoundingClientRect();
-    let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
-    let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+    const reach = pad.offsetWidth * 0.36;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
     const len = Math.hypot(dx, dy);
-    if (len > 1) {
-      dx /= len;
-      dy /= len;
+    if (len > reach) {
+      cx += (dx / len) * (len - reach);
+      cy += (dy / len) * (len - reach);
+      dx = (dx / len) * reach;
+      dy = (dy / len) * reach;
+      placePad();
     }
-    const dead = len < 0.18;
-    stick.x = dead ? 0 : dx;
-    stick.z = dead ? 0 : -dy;
-    nub.style.transform = `translate(${dx * 30}%, ${dy * 30}%)`;
+    const dead = len < reach * 0.16;
+    stick.x = dead ? 0 : dx / reach;
+    stick.z = dead ? 0 : -dy / reach;
+    nub.style.transform = `translate(${dx}px, ${dy}px)`;
     refreshAxes();
   };
-  pad.addEventListener('pointerdown', (e) => {
+  zone.addEventListener('pointerdown', (e) => {
+    if (padId !== null) return;
     e.preventDefault();
     padId = e.pointerId;
-    pad.setPointerCapture(padId);
+    zone.setPointerCapture(padId);
+    cx = e.clientX;
+    cy = e.clientY;
+    placePad();
+    pad.classList.add('active');
     padMove(e);
   });
-  pad.addEventListener('pointermove', (e) => {
+  zone.addEventListener('pointermove', (e) => {
     if (e.pointerId === padId) padMove(e);
   });
   const padEnd = (e) => {
@@ -114,10 +132,12 @@ export function initInput(canvas) {
     stick.x = 0;
     stick.z = 0;
     nub.style.transform = '';
+    pad.style.left = pad.style.top = pad.style.bottom = '';
+    pad.classList.remove('active');
     refreshAxes();
   };
-  pad.addEventListener('pointerup', padEnd);
-  pad.addEventListener('pointercancel', padEnd);
+  zone.addEventListener('pointerup', padEnd);
+  zone.addEventListener('pointercancel', padEnd);
 
   const jumpBtn = document.getElementById('btn-jump');
   jumpBtn.addEventListener('pointerdown', (e) => {

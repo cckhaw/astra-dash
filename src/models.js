@@ -208,60 +208,123 @@ export function makeSlime(color = 0x58d64a) {
   return g;
 }
 
-// Astra: a little star-scout in a teal suit with a white hood and a
-// star-tipped antenna. Model faces +Z; origin is at the feet.
+// Astra, the star-scout: a big-headed kid pilot with coral hair, flight
+// goggles, a violet suit, a long yellow scarf and a little star-pack.
+// Model faces +Z; origin is at the feet.
 export function makeHero() {
   const root = new THREE.Group();
   const body = new THREE.Group(); // squash/stretch + flips happen here
   root.add(body);
-  const suit = lam(0x14b8a6);
-  const suitDark = lam(0x0b7f76);
-  const hood = lam(0xf8fafc);
-  const skin = lam(0xffd2a8);
-  const scarf = lam(0xff7a1a);
-  const boot = lam(0x4338ca);
-  const dark = lam(0x1e1b3a);
-  const star = lam(0xffd23f, { emissive: 0x7a5a00 });
+  const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...o });
+  const suit = std(0x7c4dff);
+  const suitDark = std(0x5b2fd6);
+  const white = std(0xffffff, { roughness: 0.4 });
+  const skin = std(0xffd7b5, { roughness: 0.75 });
+  const hair = std(0xff5d8f, { roughness: 0.5 });
+  const yellow = std(0xffd23f, { emissive: 0x6b4a00, roughness: 0.4 });
+  const teal = std(0x19c8b9, { roughness: 0.4 });
+  const dark = std(0x2a1a5e);
   const part = (geo, mat, x, y, z, parent = body) => {
     const m = shadowed(new THREE.Mesh(geo, mat), true, false);
     m.position.set(x, y, z);
     parent.add(m);
     return m;
   };
-  part(new THREE.CylinderGeometry(0.27, 0.31, 0.46, 8), suit, 0, 0.55, 0);
-  part(new THREE.CylinderGeometry(0.33, 0.33, 0.1, 8), suitDark, 0, 0.36, 0);
-  part(new THREE.OctahedronGeometry(0.1, 0), star, 0, 0.58, 0.28).scale.z = 0.4;
-  part(new THREE.TorusGeometry(0.24, 0.085, 6, 10).rotateX(Math.PI / 2), scarf, 0, 0.8, 0);
-  const tail = part(new THREE.BoxGeometry(0.14, 0.34, 0.06), scarf, -0.12, 0.7, -0.3);
-  tail.rotation.x = -0.5;
-  part(new THREE.SphereGeometry(0.34, 12, 9), hood, 0, 1.08, -0.02);
-  part(new THREE.SphereGeometry(0.27, 10, 8), skin, 0, 1.05, 0.1);
-  for (const s of [-1, 1]) {
-    part(new THREE.SphereGeometry(0.05, 6, 5), dark, s * 0.11, 1.09, 0.35).scale.y = 1.5;
-    part(new THREE.SphereGeometry(0.045, 6, 5), lam(0xff9c9c), s * 0.19, 0.99, 0.3);
-  }
-  part(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 5), dark, 0, 1.5, -0.05);
-  const tip = part(new THREE.OctahedronGeometry(0.1, 0), star, 0, 1.66, -0.05);
+  const ball = (r, mat, x, y, z, parent, sx = 1, sy = 1, sz = 1) => {
+    const m = part(new THREE.SphereGeometry(r, 18, 14), mat, x, y, z, parent);
+    m.scale.set(sx, sy, sz);
+    return m;
+  };
 
-  const limb = (x, y, len, mat, endMat) => {
+  // torso, belt, chest star
+  ball(0.27, suit, 0, 0.52, 0, body, 1, 1.1, 0.9);
+  part(new THREE.TorusGeometry(0.245, 0.04, 8, 20).rotateX(Math.PI / 2), yellow, 0, 0.4, 0);
+  part(new THREE.OctahedronGeometry(0.085, 0), yellow, 0, 0.6, 0.23).scale.z = 0.4;
+
+  // scarf with two fluttering tails
+  part(new THREE.TorusGeometry(0.19, 0.08, 8, 18).rotateX(Math.PI / 2), yellow, 0, 0.77, 0);
+  const tails = [-1, 1].map((s) => {
     const pivot = new THREE.Group();
-    pivot.position.set(x, y, 0);
+    pivot.position.set(s * 0.07, 0.78, -0.2);
     body.add(pivot);
-    part(new THREE.BoxGeometry(0.15, len, 0.15), mat, 0, -len / 2, 0, pivot);
-    part(new THREE.BoxGeometry(0.2, 0.16, 0.26), endMat, 0, -len - 0.04, 0.04, pivot);
+    part(new THREE.BoxGeometry(0.13, 0.05, 0.46), yellow, 0, 0, -0.23, pivot);
+    return pivot;
+  });
+
+  // star-pack with antenna
+  part(new THREE.BoxGeometry(0.3, 0.3, 0.16), teal, 0, 0.54, -0.3);
+  part(new THREE.OctahedronGeometry(0.09, 0), yellow, 0, 0.54, -0.39).scale.z = 0.35;
+  for (const s of [-1, 1]) part(new THREE.CylinderGeometry(0.05, 0.065, 0.1, 8), white, s * 0.09, 0.36, -0.3);
+  part(new THREE.CylinderGeometry(0.014, 0.014, 0.3, 5), dark, 0.12, 0.82, -0.32);
+  const tip = part(new THREE.OctahedronGeometry(0.07, 0), yellow, 0.12, 1.0, -0.32);
+
+  // head
+  const head = new THREE.Group();
+  head.position.y = 1.02;
+  body.add(head);
+  ball(0.36, skin, 0, 0, 0, head);
+  for (const s of [-1, 1]) ball(0.075, skin, s * 0.35, -0.03, 0, head);
+  const cap = part(new THREE.SphereGeometry(0.385, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.56), hair, 0, 0, 0, head);
+  cap.rotation.x = -0.42;
+  const spike = (r, h, x, y, z, rx, rz) => {
+    const c = part(new THREE.ConeGeometry(r, h, 7), hair, x, y, z, head);
+    c.rotation.set(rx, 0, rz);
+  };
+  spike(0.13, 0.3, 0, 0.4, -0.06, -0.5, 0);
+  spike(0.11, 0.26, -0.17, 0.33, -0.12, -0.6, 0.5);
+  spike(0.11, 0.26, 0.17, 0.33, -0.12, -0.6, -0.5);
+  spike(0.15, 0.4, 0, 0.14, -0.38, -1.75, 0);
+  spike(0.13, 0.34, -0.21, 0.06, -0.32, -1.75, 0.6);
+  spike(0.13, 0.34, 0.21, 0.06, -0.32, -1.75, -0.6);
+  spike(0.09, 0.22, 0.1, 0.27, 0.27, 1.9, -0.35); // fringe
+  spike(0.07, 0.18, -0.1, 0.29, 0.26, 1.8, 0.4);
+
+  // face: big eyes with highlights, cheeks, smile
+  const glint = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const eyes = [-1, 1].map((s) => {
+    const eye = new THREE.Group();
+    eye.position.set(s * 0.135, 0.0, 0.305);
+    eye.rotation.y = s * 0.3;
+    head.add(eye);
+    ball(0.1, white, 0, 0, 0, eye, 0.9, 1.1, 0.45);
+    ball(0.066, dark, 0, -0.005, 0.03, eye, 1, 1.15, 0.45);
+    part(new THREE.SphereGeometry(0.024, 8, 6), glint, 0.022, 0.035, 0.058, eye);
+    return eye;
+  });
+  const blush = std(0xff8fa3, { roughness: 0.9 });
+  for (const s of [-1, 1]) ball(0.055, blush, s * 0.235, -0.115, 0.255, head, 1, 0.7, 0.3);
+  const smile = part(new THREE.TorusGeometry(0.055, 0.016, 6, 12, Math.PI), std(0xb23a48), 0, -0.125, 0.335, head);
+  smile.rotation.z = Math.PI;
+
+  // flight goggles pushed up on the forehead
+  const strap = part(new THREE.TorusGeometry(0.368, 0.03, 6, 24).rotateX(Math.PI / 2), dark, 0, 0.17, 0, head);
+  strap.rotation.x = -0.12;
+  for (const s of [-1, 1]) {
+    part(new THREE.CylinderGeometry(0.1, 0.1, 0.07, 14).rotateX(Math.PI / 2), white, s * 0.125, 0.215, 0.325, head);
+    part(new THREE.CylinderGeometry(0.072, 0.072, 0.08, 14).rotateX(Math.PI / 2), std(0x6ff3ff, { emissive: 0x1a8fa0, roughness: 0.15 }), s * 0.125, 0.215, 0.332, head);
+  }
+
+  const arm = (s) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(s * 0.31, 0.7, 0);
+    body.add(pivot);
+    part(new THREE.CapsuleGeometry(0.065, 0.14, 4, 8), suit, 0, -0.11, 0, pivot);
+    part(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 10), yellow, 0, -0.2, 0, pivot);
+    ball(0.095, white, 0, -0.28, 0, pivot);
+    pivot.rotation.z = s * 0.28;
     return pivot;
   };
-  const parts = {
-    body,
-    tip,
-    armL: limb(-0.36, 0.76, 0.3, suit, hood),
-    armR: limb(0.36, 0.76, 0.3, suit, hood),
-    legL: limb(-0.14, 0.34, 0.2, suitDark, boot),
-    legR: limb(0.14, 0.34, 0.2, suitDark, boot),
+  const leg = (s) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(s * 0.13, 0.3, 0);
+    body.add(pivot);
+    part(new THREE.CapsuleGeometry(0.075, 0.08, 4, 8), suitDark, 0, -0.09, 0, pivot);
+    ball(0.13, white, 0, -0.21, 0.04, pivot, 1, 0.78, 1.4);
+    part(new THREE.BoxGeometry(0.2, 0.04, 0.32), teal, 0, -0.29, 0.04, pivot);
+    return pivot;
   };
-  parts.armL.rotation.z = -0.25;
-  parts.armR.rotation.z = 0.25;
-  root.userData.parts = parts;
+  root.scale.setScalar(1.15);
+  root.userData.parts = { body, tip, tails, eyes, head, armL: arm(-1), armR: arm(1), legL: leg(-1), legR: leg(1) };
   return root;
 }
 

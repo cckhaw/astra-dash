@@ -19,13 +19,30 @@ const THEMES = {
   },
 };
 
+export const INTRO = [
+  'You are Astra, a young star-scout charting the night sky in your little ship, the Comet.',
+  'A swarm of grumpy slimes bumped the Comet off course and shook all five Star Sparks out of its engine. They tumbled down across the land below.',
+  'Without them the Comet cannot fly home. Follow each Spark\u2019s glow and raise the beacon flag at the end of every world to call it back.',
+];
+
+export const OUTRO = [
+  'The fifth Spark clicks into place and the Comet\u2019s engine hums back to life.',
+  'The slimes watch from the summit as you lift off, scarf streaming, and one of them even waves.',
+  'Home is a long way off, but the sky is clear and every Spark is shining. Well flown, star-scout!',
+];
+
 export const LEVELS = [
   {
     // World 1: solid ground all the way, with two small rivers to hop.
     // Falling in the water only costs a splash, not a life.
     name: 'Green Valley',
     theme: THEMES.meadow,
-    time: 240,
+    time: 360,
+    story: [
+      'The Comet has come down in a quiet green valley. The first Spark fell somewhere past the rivers and the old log bridge.',
+      'The slimes here are slow and the water is shallow, so it is a good place to find your feet. Hop the rivers, climb the terraces and raise the beacon.',
+    ],
+    route: [[0, -10], [0, -19], [0, -25], [0, -38], [0, -43], [0, -47], [0, -49.75], [0, -54], [0, -69.5], [0, -80], [0, -86], [0, -105.5], [0, -113], [0, -120], [0, -126], [0, -131]],
     land: true,
     waterY: -1,
     safeWater: true,
@@ -67,8 +84,43 @@ export const LEVELS = [
       b.tree(8.5, 0, -58);
       b.mystery(4, 0, -57, 'jump');
       b.slime(-3, 0, -59, 'x', 3);
-      b.coinRing(0, 0, -66, 2.6, 8);
-      b.flag(0, 0, -66);
+      b.coinLine(-4, 0, -66, 4, 0, -66, 5);
+
+      // the old log bridge over the pond
+      b.island(0, -77.5, 4, 12, 0);
+      b.coinLine(0, 0, -73.5, 0, 0, -81.5, 5);
+
+      b.island(0, -95.5, 22, 24, 0);
+      b.checkpoint(-3, 0, -85.5);
+      b.tree(-8.5, 0, -87);
+      b.tree(8.5, 0, -99);
+      b.island(6, -93, 6, 6, 1, { h: 1 });
+      b.island(6, -93, 3, 3, 2, { h: 1 });
+      b.coinRing(6, 1, -93, 2.3, 6);
+      b.coin(6, 2, -93);
+      b.mystery(-5.6, 0, -92, 'multi');
+      b.brick(-4.4, 0, -92);
+      b.mystery(-3.2, 0, -92, 'speed');
+      b.slime(-4, 0, -97, 'x', 4);
+      b.slime(2, 0, -102, 'x', 5);
+      b.coinLine(-2, 0, -105, 2, 0, -105, 3);
+
+      // third river
+      b.coinLine(0, 1.3, -108, 0, 1.3, -110, 3);
+      b.island(0, -122.5, 22, 24, 0);
+      b.checkpoint(-3, 0, -112.5);
+      b.tree(-8.5, 0, -113);
+      b.tree(8.5, 0, -114);
+      b.slime(3, 0, -114.5, 'x', 4);
+      b.island(0, -120, 22, 6, 1, { h: 1 });
+      b.slime(-3, 1, -120, 'x', 4);
+      b.coinLine(-6, 1, -121, 6, 1, -121, 5);
+      b.island(0, -128.75, 22, 11.5, 2, { h: 2 });
+      b.mystery(-4, 2, -126, 'jump');
+      b.tree(-8.5, 2, -132);
+      b.tree(8.5, 2, -132);
+      b.coinRing(0, 2, -131, 2.6, 8);
+      b.flag(0, 2, -131);
     },
   },
   {
@@ -76,7 +128,12 @@ export const LEVELS = [
     // puddle and some climbing.
     name: 'Riverbend Hills',
     theme: THEMES.meadow,
-    time: 240,
+    time: 380,
+    story: [
+      'One Spark is back in the engine, and its glow points upriver, where the water runs wide and the hills smoulder.',
+      'The valley folk left stepping stones and rafts for travellers. Mind the lava puddles, ride the rafts and climb to the hilltop beacon.',
+    ],
+    route: [[0, -12.5], [-2, -16.5], [1.5, -20], [1, -24], [0, -36.5], 'm0', [0, -48], [0, -54.2], [0, -57], [0, -63.5], [-2.5, -68.5], [1, -72], [1, -77.5], [0, -98.5], 'm1', 'm2', [0, -112], [0, -118], [0, -122], [0, -128]],
     land: true,
     waterY: -1,
     safeWater: true,
@@ -121,14 +178,55 @@ export const LEVELS = [
       b.island(0, -54.2, 4, 1.6, 0.75, { h: 0.75 });
       b.island(0, -60, 12, 10, 1.5, { h: 1.5 });
       b.slime(0, 1.5, -57.5, 'x', 4);
-      b.coinRing(0, 1.5, -61.5, 2.6, 8);
-      b.flag(0, 1.5, -61.5);
+      b.coinLine(-3, 1.5, -62, 3, 1.5, -62, 4);
+
+      // more stepping stones
+      b.island(-2.5, -68.5, 3, 3, 0.3, { h: 2 });
+      b.coin(-2.5, 0.3, -68.5);
+      b.island(1, -72, 3, 3, 0.3, { h: 2 });
+      b.coin(1, 0.3, -72);
+
+      b.island(0, -88, 20, 24, 0);
+      b.checkpoint(3, 0, -78);
+      b.tree(-8, 0, -78);
+      b.tree(8, 0, -82);
+      b.mystery(-0.6, 0, -82, 'jump');
+      b.mystery(0.6, 0, -82, 'coin');
+      b.lava(-6, -86.5, 7, 3, 0);
+      b.lava(6, -91, 7, 3, 0);
+      b.slime(5, 0, -86, 'x', 3);
+      b.slime(-5, 0, -91, 'x', 3);
+      b.slime(0, 0, -96, 'x', 5);
+      b.island(-6.5, -96, 5, 5, 1.2, { h: 1.2 });
+      b.coinRing(-6.5, 1.2, -96, 1.6, 5);
+      b.coinLine(0, 0, -85, 0, 0, -93, 4);
+
+      // two rafts drifting side to side
+      b.mover(-2, -103, 3.5, 3.5, 0, { axis: 'x', range: 2.5, speed: 0.8 });
+      b.mover(2, -107, 3.5, 3.5, 0, { axis: 'x', range: 2.5, speed: 0.8, phase: Math.PI });
+
+      b.island(0, -121, 20, 22, 0);
+      b.checkpoint(-3, 0, -112);
+      b.tree(-8, 0, -113);
+      b.tree(8, 0, -113);
+      b.slime(5, 0, -114, 'x', 3);
+      b.island(0, -118, 8, 4, 1, { h: 1 });
+      b.island(0, -122, 8, 4, 2.2, { h: 2.2 });
+      b.coinLine(-2.5, 2.2, -122, 2.5, 2.2, -122, 3);
+      b.island(0, -127.5, 12, 7, 3.4, { h: 3.4 });
+      b.coinRing(0, 3.4, -128, 2.4, 8);
+      b.flag(0, 3.4, -128);
     },
   },
   {
     name: 'Sunny Isles',
     theme: THEMES.meadow,
-    time: 200,
+    time: 400,
+    story: [
+      'Two Sparks give the Comet just enough lift to hover, but the third has drifted up among the floating isles.',
+      'There is no riverbank to catch you up here, so watch your shadow when you jump. Checkpoint crystals will remember how far you got.',
+    ],
+    route: [[0, -13.5], 'm0', [0, -30], [4.5, -33], [8, -33], [13, -33], [13, -38], [11, -43], [13, -48], 'm1', [13, -57], [13, -63], [13, -70], [8, -76], [13, -82], 'm2', [13, -98], [13, -106.5], 'm3', 'm4', [13, -124], [13, -127]],
     build(b) {
       b.spawn(0, 0, 4);
       b.island(0, 0, 14, 14, 0);
@@ -174,15 +272,48 @@ export const LEVELS = [
 
       b.mover(13, -52, 3, 3, 4.5, { axis: 'y', range: 2.5, speed: 0.9 });
       b.island(13, -60, 10, 10, 7);
-      b.coinRing(13, 7, -61, 2.6, 8);
+      b.coinRing(13, 7, -60, 2.6, 8);
       b.tree(9.5, 7, -63.5);
-      b.flag(13, 7, -61);
+      b.checkpoint(16.5, 7, -57);
+
+      b.island(13, -70, 4, 4, 7);
+      b.coin(13, 7, -70);
+      b.island(8, -76, 4, 4, 7.8);
+      b.coin(8, 7.8, -76);
+      b.island(13, -82, 4, 4, 8.6);
+      b.coin(13, 8.6, -82);
+      b.mover(13, -90, 3.5, 3.5, 8.6, { axis: 'z', range: 2.5, speed: 1 });
+      b.coinLine(13, 10, -87, 13, 10, -93, 4);
+
+      b.island(13, -102, 12, 12, 8.6);
+      b.checkpoint(9, 8.6, -97.5);
+      b.tree(17.5, 8.6, -97.5);
+      b.brick(10.6, 8.6, -102);
+      b.mystery(11.8, 8.6, -102, 'jump');
+      b.brick(13, 8.6, -102);
+      b.mystery(14.2, 8.6, -102, 'multi');
+      b.brick(15.4, 8.6, -102);
+      b.slime(13, 8.6, -99.5, 'x', 4);
+      b.slime(13, 8.6, -105, 'x', 4);
+
+      b.mover(13, -112.5, 3, 3, 8.6, { axis: 'x', range: 3, speed: 1 });
+      b.mover(13, -118, 3, 3, 10, { axis: 'y', range: 1.8, speed: 0.9 });
+      b.island(13, -126, 10, 10, 11.5);
+      b.tree(9.5, 11.5, -129.5);
+      b.tree(16.5, 11.5, -129.5);
+      b.coinRing(13, 11.5, -127, 2.6, 8);
+      b.flag(13, 11.5, -127);
     },
   },
   {
     name: 'Sunset Mesa',
     theme: THEMES.mesa,
-    time: 220,
+    time: 420,
+    story: [
+      'The slimes have carried the fourth Spark off to their favourite sunbathing spot: a scorched mesa above a sea of magma.',
+      'The stone here is cracked with lava and the platforms never sit still. Time your jumps, and use a ground-pound to clear a crowd.',
+    ],
+    route: [[0, -10], [-5, -15], [0, -21], [0, -28], [0, -30.5], [0, -36], [0, -39], 'm0', 'm1', [0, -57], [3, -59], [6, -59], [11, -59], [11, -64], [11, -71], [11, -77], [11, -83], [11, -88.5], [11, -99.5], 'm2', 'm3', [11, -121], [5, -121], [0, -121], [0, -127], [0, -130]],
     build(b) {
       b.spawn(0, 0, 3);
       b.island(0, 0, 10, 10, 0);
@@ -228,14 +359,52 @@ export const LEVELS = [
       b.lava(8.2, -66, 3.4, 4, 6.2);
       b.lava(13.8, -66, 3.4, 4, 6.2);
       b.slime(11, 6.2, -64.5, 'z', 1.2);
-      b.coinRing(11, 6.2, -69.5, 2.4, 8);
-      b.flag(11, 6.2, -69.5);
+      b.coinLine(9.5, 6.2, -70, 12.5, 6.2, -70, 3);
+      b.checkpoint(14, 6.2, -71);
+
+      b.island(11, -77, 3, 3, 6.2);
+      b.coin(11, 6.2, -77);
+      b.island(11, -83, 3, 3, 6.2);
+      b.coin(11, 6.2, -83);
+
+      b.island(11, -94, 12, 14, 6.2);
+      b.checkpoint(15.5, 6.2, -88.2);
+      b.lava(7.3, -91, 4.6, 3, 6.2);
+      b.lava(14.7, -95, 4.6, 3, 6.2);
+      b.lava(7.3, -99, 4.6, 3, 6.2);
+      b.slime(14, 6.2, -91, 'x', 2.2);
+      b.slime(8, 6.2, -95, 'x', 2.2);
+      b.mystery(15.2, 6.2, -99, 'speed');
+      b.brick(14, 6.2, -99);
+      b.coinLine(11, 6.2, -90, 11, 6.2, -98, 5);
+
+      b.mover(11, -106, 3, 3, 6.2, { axis: 'z', range: 2.5, speed: 1 });
+      b.mover(11, -114, 3, 3, 6.2, { axis: 'x', range: 3.5, speed: 1.1 });
+      b.island(11, -121, 6, 6, 7);
+      b.checkpoint(13, 7, -119.5);
+      b.island(5, -121, 3, 3, 8.4);
+      b.coin(5, 8.4, -121);
+      b.island(0, -121, 3, 3, 9.8);
+      b.coin(0, 9.8, -121);
+
+      b.island(0, -129, 9, 9, 9.8);
+      b.lava(-3.1, -131.5, 2.8, 4, 9.8);
+      b.lava(3.1, -131.5, 2.8, 4, 9.8);
+      b.slime(0, 9.8, -126.5, 'x', 3);
+      b.tree(-3.3, 9.8, -126);
+      b.coinRing(0, 9.8, -130.5, 1.4, 6);
+      b.flag(0, 9.8, -130.5);
     },
   },
   {
     name: 'Starlight Summit',
     theme: THEMES.summit,
-    time: 240,
+    time: 440,
+    story: [
+      'Only one Spark is missing. It landed at the very top of the frozen summit, where the sky is the colour of dusk and the whole slime swarm is waiting.',
+      'Everything you have learned comes together here: lifts, drifting platforms, lava and long jumps. Reach the last beacon and the Comet can fly again.',
+    ],
+    route: ['m0', [0, -15], 'm1', [0, -32.5], [-5, -33.5], [-5, -36], [-8, -36], [-13, -36], 'm2', [-13, -53.5], [-10.5, -56], [-13, -59], 'm3', [-13, -68], [-13, -73.5], 'm4', [-13, -86], 'm5', [-13, -98], [-9.5, -98], [-9.5, -101], [-6, -101], [-1, -101], 'm6', [-1, -118], [-1, -122]],
     build(b) {
       b.spawn(0, 0, 2.5);
       b.island(0, 0, 9, 9, 0);
@@ -281,8 +450,37 @@ export const LEVELS = [
       b.island(-13, -71, 9, 9, 10);
       b.tree(-16.2, 10, -74);
       b.tree(-9.8, 10, -74);
-      b.coinRing(-13, 10, -71.5, 2.6, 10);
-      b.flag(-13, 10, -71.5);
+      b.coinRing(-13, 10, -71, 2.6, 8);
+      b.checkpoint(-10, 10, -68.5);
+
+      b.mover(-13, -79.5, 3, 3, 10, { axis: 'x', range: 4, speed: 1 });
+      b.island(-13, -86, 4, 4, 10);
+      b.coin(-13, 10, -86);
+      b.mover(-13, -92.5, 3, 3, 11.5, { axis: 'y', range: 1.5, speed: 0.9 });
+
+      b.island(-13, -101, 10, 10, 13);
+      b.checkpoint(-9.5, 13, -97);
+      b.lava(-14.5, -101, 7, 2.5, 13);
+      b.slime(-14, 13, -98, 'x', 3);
+      b.slime(-14, 13, -104, 'x', 3);
+      b.mystery(-16.5, 13, -104.5, 'jump');
+      b.mystery(-11, 13, -104.5, 'multi');
+      b.tree(-16.8, 13, -96.8);
+      b.island(-6, -101, 3, 3, 14.4);
+      b.coin(-6, 14.4, -101);
+      b.island(-1, -101, 3, 3, 15.8);
+      b.coin(-1, 15.8, -101);
+
+      b.mover(-1, -109, 3, 3, 15.8, { axis: 'z', range: 3, speed: 1.1 });
+      b.coinLine(-1, 17.2, -106, -1, 17.2, -112, 4);
+      b.island(-1, -121, 10, 10, 15.8);
+      b.lava(-4.2, -123, 2.6, 4, 15.8);
+      b.lava(2.2, -123, 2.6, 4, 15.8);
+      b.slime(-1, 15.8, -118.5, 'x', 3.5);
+      b.tree(-4.5, 15.8, -125);
+      b.tree(2.5, 15.8, -125);
+      b.coinRing(-1, 15.8, -122, 1.3, 6);
+      b.flag(-1, 15.8, -122);
     },
   },
 ];
