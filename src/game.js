@@ -1,0 +1,860 @@
+import * as THREE from 'three';
+import { LEVELS } from './levels.js';
+import * as M from './models.js';
+import { audio } from './audio.js';
+import { input, clearEdges } from './input.js';
+
+const GRAVITY = 38;
+const JUMP_V = 13.5;
+const DOUBLE_V = 12;
+const RUN_SPEED = 7.6;
+const HW = 0.34; // player half-width
+const PH = 1.25; // player height
+const EPS = 0.001;
+const WATER_Y = -9;
+const HS_KEY = 'astra-dash-highscore';
+const POWER_TIME = 12;
+
+const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
+
+function loadHighScore() {
+  try {
+    return Number(localStorage.getItem(HS_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export class Game {
+  constructor(canvas, ui) {
+    this.ui = ui;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
+
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.6);
+    this.sun = new THREE.DirectionalLight(0xffffff, 2.2);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    const sc = this.sun.shadow.camera;
+    sc.left = sc.bottom = -24;
+    sc.right = sc.top = 24;
+    sc.near = 1;
+    sc.far = 70;
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0.03;
+    this.scene.add(this.hemi, this.sun, this.sun.target);
+
+    this.hero = M.makeHero();
+    this.blob = M.makeBlobShadow();
+    this.scene.add(this.hero, this.blob);
+
+    this.cam = { yaw: 0, target: new THREE.Vector3(), shake: 0 };
+    this.state = 'menu';
+    this.levelIndex = 0;
+    this.score = 0;
+    this.coins = 0;
+    this.lives = 3;
+    this.high = loadHighScore();
+    this.time = 0;
+    this.clock = 0;
+    this.p = this.newPlayer();
+    this.level = new THREE.Group();
+    this.scene.add(this.level);
+    this.partGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+    this.partMats = new Map();
+
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.loadLevel(0);
+
+    let last = performance.now();
+    const frame = (now) => {
+      const dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      this.frame(dt);
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  newPlayer() {
+    return {
+      pos: new THREE.Vector3(), vel: new THREE.Vector3(), grounded: false, ground: null,
+      coyote: 0, buffer: 0, jumps: 0, cut: true, pounding: false, hover: 0, invuln: 0,
+      facing: Math.PI, flip: 0, squash: 0, runT: 0, jumpPower: 0, speedPower: 0,
+    };
+  }
+
+  resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.fov = w < h ? 72 : 55;
+    this.camera.updateProjectionMatrix();
+  }
+
+  // ------------------------------------------------------------------
+  // Level construction
+  // ------------------------------------------------------------------
+  loadLevel(index) {
+    this.levelIndex = index;
+    const def = LEVELS[index];
+    const theme = (this.theme = def.theme);
+    this.scene.remove(this.level);
+    this.level = new THREE.Group();
+    this.scene.add(this.level);
+
+    this.solids = [];
+    this.movers = [];
+    this.pickups = [];
+    this.slimes = [];
+    this.lavas = [];
+    this.checkpoints = [];
+    this.tweens = [];
+    this.parts = [];
+    this.flag = null;
+    this.spawnPoint = new THREE.Vector3(0, 0, 0);
+
+    this.scene.background = M.makeSky(theme.skyTop, theme.skyBottom);
+    this.scene.fog = new THREE.Fog(theme.fog, 55, 150);
+    this.sun.color.set(theme.sun);
+    this.hemi.intensity = 1.6 * theme.ambient;
+
+    def.build(this.builder());
+
+    // Scenery: sea, clouds, rainbow, far-off islets.
+    const water = new THREE.Mesh(
+      new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: theme.water, transparent: true, opacity: 0.92 }),
+    );
+    water.position.set(0, WATER_Y, -40);
+    water.receiveShadow = true;
+    this.level.add(water);
+    this.clouds = [];
+    for (let i = 0; i < 16; i++) {
+      const c = M.makeCloud();
+      c.position.set(-90 + Math.random() * 180, 10 + Math.random() * 22, 30 - Math.random() * 170);
+      c.scale.setScalar(0.8 + Math.random());
+      this.clouds.push(c);
+      this.level.add(c);
+    }
+    if (theme.rainbow) {
+      const r = M.makeRainbow();
+      r.position.set(-10, WATER_Y, -150);
+      this.level.add(r);
+    }
+    for (let i = 0; i < 9; i++) {
+      const s = 4 + Math.random() * 6;
+      const side = i % 2 ? 1 : -1;
+      const isle = M.makeIsland(s, 3 + Math.random() * 5, s, theme);
+      isle.position.set(side * (26 + Math.random() * 30), -4 + Math.random() * 8, 10 - i * 11);
+      this.level.add(isle);
+      if (i % 3 === 0) {
+        const t = M.makeTree(theme);
+        t.position.copy(isle.position).y += isle.children[1].position.y + 0.2;
+        this.level.add(t);
+      }
+    }
+
+    this.time = def.time;
+    this.respawn(true);
+    this.cam.yaw = 0;
+    this.cam.target.copy(this.p.pos);
+    this.syncHud(true);
+  }
+
+  addSolid(mesh, cx, cy, cz, w, h, d, extra = {}) {
+    const s = {
+      mesh,
+      min: new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      max: new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2),
+      delta: null,
+      ...extra,
+    };
+    if (mesh) {
+      mesh.position.set(cx, cy, cz);
+      this.level.add(mesh);
+    }
+    this.solids.push(s);
+    return s;
+  }
+
+  builder() {
+    const theme = this.theme;
+    const blockY = (y) => y + 2.8 + 0.6;
+    return {
+      spawn: (x, y, z) => this.spawnPoint.set(x, y, z),
+      island: (x, z, w, d, top, { h = 3 } = {}) => this.addSolid(M.makeIsland(w, h, d, theme), x, top - h / 2, z, w, h, d),
+      mover: (x, z, w, d, top, { axis = 'x', range = 3, speed = 1, phase = 0 } = {}) => {
+        const s = this.addSolid(M.makeMover(w, 0.6, d), x, top - 0.3, z, w, 0.6, d, {
+          delta: new THREE.Vector3(), axis, range, speed, phase, origin: new THREE.Vector3(x, top - 0.3, z),
+          size: new THREE.Vector3(w, 0.6, d),
+        });
+        this.movers.push(s);
+      },
+      mystery: (x, y, z, content) => this.addSolid(M.makeMystery(), x, blockY(y), z, 1.2, 1.2, 1.2, { kind: 'mystery', content, left: content === 'multi' ? 5 : 1 }),
+      brick: (x, y, z) => this.addSolid(M.makeBrick(), x, blockY(y), z, 1.2, 1.2, 1.2, { kind: 'brick' }),
+      coin: (x, y, z) => this.addCoin(x, y + 0.9, z),
+      coinLine: (x1, y1, z1, x2, y2, z2, n) => {
+        for (let i = 0; i < n; i++) {
+          const k = n === 1 ? 0 : i / (n - 1);
+          this.addCoin(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k + 0.9, z1 + (z2 - z1) * k);
+        }
+      },
+      coinRing: (x, y, z, r, n) => {
+        for (let i = 0; i < n; i++) this.addCoin(x + Math.cos((i / n) * 6.283) * r, y + 0.9, z + Math.sin((i / n) * 6.283) * r);
+      },
+      slime: (x, y, z, axis, range) => {
+        const mesh = M.makeSlime(theme.name === 'summit' ? 0x4dabf7 : theme.name === 'mesa' ? 0xe64980 : 0x58d64a);
+        mesh.position.set(x, y, z);
+        this.level.add(mesh);
+        this.slimes.push({ mesh, origin: new THREE.Vector3(x, y, z), axis, range, t: Math.random() * 6, alive: true });
+      },
+      lava: (x, z, w, d, y) => {
+        const mesh = M.makeLava(w, d);
+        mesh.position.set(x, y + 0.06, z);
+        this.level.add(mesh);
+        this.lavas.push({ mesh, minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, y });
+      },
+      checkpoint: (x, y, z) => {
+        const mesh = M.makeCheckpoint();
+        mesh.position.set(x, y, z);
+        this.level.add(mesh);
+        this.checkpoints.push({ mesh, pos: new THREE.Vector3(x, y, z), active: false });
+      },
+      tree: (x, y, z) => {
+        const mesh = M.makeTree(theme);
+        mesh.position.set(x, y, z);
+        this.level.add(mesh);
+        this.addSolid(null, x, y + 0.8, z, 0.6, 1.6, 0.6);
+      },
+      flag: (x, y, z) => {
+        const mesh = M.makeFlag();
+        mesh.position.set(x, y, z);
+        this.level.add(mesh);
+        this.addSolid(null, x, y + 0.25, z, 1.2, 0.5, 1.2);
+        this.flag = { mesh, pos: new THREE.Vector3(x, y, z) };
+      },
+    };
+  }
+
+  addCoin(x, y, z) {
+    const mesh = M.makeCoin();
+    mesh.position.set(x, y, z);
+    this.level.add(mesh);
+    this.pickups.push({ type: 'coin', mesh, pos: mesh.position, phase: (x + z) * 0.4, ready: true });
+  }
+
+  // ------------------------------------------------------------------
+  // Flow
+  // ------------------------------------------------------------------
+  startGame() {
+    this.score = 0;
+    this.coins = 0;
+    this.lives = 3;
+    this.loadLevel(0);
+    this.state = 'playing';
+    audio.startMusic();
+    this.ui.screen(null);
+    this.ui.toast(`World 1 — ${LEVELS[0].name}`);
+  }
+
+  nextLevel() {
+    if (this.levelIndex + 1 >= LEVELS.length) return this.startGame();
+    this.loadLevel(this.levelIndex + 1);
+    this.state = 'playing';
+    audio.startMusic();
+    this.ui.screen(null);
+    this.ui.toast(`World ${this.levelIndex + 1} — ${LEVELS[this.levelIndex].name}`);
+  }
+
+  togglePause() {
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      audio.stopMusic();
+      this.ui.screen('pause');
+    } else if (this.state === 'paused') {
+      this.state = 'playing';
+      audio.startMusic();
+      this.ui.screen(null);
+    }
+  }
+
+  respawn(initial = false) {
+    const p = this.p;
+    const keep = initial ? {} : { jumpPower: 0, speedPower: 0 };
+    Object.assign(p, this.newPlayer(), keep);
+    p.pos.copy(this.respawnAt && !initial ? this.respawnAt : this.spawnPoint);
+    if (initial) this.respawnAt = null;
+    p.pos.y += 0.05;
+    p.invuln = initial ? 0 : 2;
+  }
+
+  addScore(n) {
+    this.score += n;
+    if (this.score > this.high) {
+      this.high = this.score;
+      try {
+        localStorage.setItem(HS_KEY, String(this.high));
+      } catch {
+        /* storage unavailable */
+      }
+    }
+  }
+
+  addCoins(n) {
+    this.coins += n;
+    this.addScore(100 * n);
+    if (this.coins >= 100) {
+      this.coins -= 100;
+      this.lives++;
+      audio.oneUp();
+      this.ui.toast('1-UP!');
+    }
+  }
+
+  loseLife(respawn) {
+    if (this.state !== 'playing') return;
+    this.lives--;
+    audio.hurt();
+    this.cam.shake = 0.4;
+    if (this.lives <= 0) {
+      this.state = 'gameover';
+      audio.gameOver();
+      this.ui.screen('gameover', { score: this.score, high: this.high });
+      return;
+    }
+    if (respawn) this.respawn();
+    else this.p.invuln = 2;
+  }
+
+  finishLevel() {
+    this.state = 'complete';
+    audio.fanfare();
+    const bonus = Math.ceil(this.time) * 10;
+    const { flag } = this.flag.mesh.userData;
+    this.tween(1.2, (k) => (flag.position.y = 1 + k * 5));
+    this.burst(this.flag.pos.clone().setY(this.flag.pos.y + 6), 0xffd23f, 30, 7);
+    this.p.vel.set(0, 0, 0);
+    setTimeout(() => {
+      this.addScore(bonus + 1000);
+      this.syncHud(true);
+      this.ui.screen('complete', {
+        name: LEVELS[this.levelIndex].name, bonus, score: this.score, high: this.high,
+        last: this.levelIndex + 1 >= LEVELS.length,
+      });
+    }, 1700);
+  }
+
+  // ------------------------------------------------------------------
+  // Helpers: tweens and particles
+  // ------------------------------------------------------------------
+  tween(d, fn, done) {
+    this.tweens.push({ t: 0, d, fn, done });
+  }
+
+  burst(pos, color, n = 10, speed = 5) {
+    if (!this.partMats.has(color)) this.partMats.set(color, new THREE.MeshBasicMaterial({ color }));
+    for (let i = 0; i < n; i++) {
+      const mesh = new THREE.Mesh(this.partGeo, this.partMats.get(color));
+      mesh.position.copy(pos);
+      mesh.scale.setScalar(0.6 + Math.random() * 1.2);
+      this.level.add(mesh);
+      const a = Math.random() * 6.283;
+      const s = speed * (0.4 + Math.random() * 0.6);
+      this.parts.push({ mesh, vel: new THREE.Vector3(Math.cos(a) * s, speed * (0.5 + Math.random() * 0.7), Math.sin(a) * s), life: 0.5 + Math.random() * 0.3 });
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Main loop
+  // ------------------------------------------------------------------
+  frame(dt) {
+    if (input.mutePressed) this.ui.setMuted(audio.toggleMute());
+    if (input.pausePressed) this.togglePause();
+    this.clock += dt;
+
+    if (this.state === 'playing') {
+      this.time -= dt;
+      if (this.time <= 0) {
+        this.time = LEVELS[this.levelIndex].time;
+        this.ui.toast("Time's up!");
+        this.loseLife(true);
+      }
+      this.updateMovers(dt);
+      this.updatePlayer(dt);
+      this.updateWorld(dt);
+    } else if (this.state !== 'paused') {
+      this.updateMovers(dt);
+      this.updateWorld(dt, true);
+      if (this.state === 'menu') this.cam.yaw += dt * 0.15;
+    }
+    if (this.state !== 'paused') {
+      this.updateFx(dt);
+      this.animateHero(dt);
+    }
+    this.updateCamera(dt);
+    this.syncHud();
+    clearEdges();
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  updateMovers(dt) {
+    const p = this.p;
+    for (const m of this.movers) {
+      const off = Math.sin(this.clock * m.speed + m.phase) * m.range;
+      const c = m.origin.clone();
+      c[m.axis] += off;
+      m.delta.copy(c).sub(m.mesh.position);
+      m.mesh.position.copy(c);
+      m.min.copy(c).addScaledVector(m.size, -0.5);
+      m.max.copy(c).addScaledVector(m.size, 0.5);
+      if (this.state !== 'playing') continue;
+      if (p.grounded && p.ground === m) {
+        p.pos.add(m.delta);
+      } else if (this.overlaps(m)) {
+        // Shoved by a platform: push out along its travel direction.
+        if (m.axis === 'y') p.pos.y = m.delta.y > 0 ? m.max.y : m.min.y - PH;
+        else p.pos[m.axis] = m.delta[m.axis] > 0 ? m.max[m.axis] + HW : m.min[m.axis] - HW;
+      }
+    }
+  }
+
+  overlaps(s) {
+    const q = this.p.pos;
+    return (
+      q.x + HW > s.min.x + EPS && q.x - HW < s.max.x - EPS &&
+      q.z + HW > s.min.z + EPS && q.z - HW < s.max.z - EPS &&
+      q.y + PH > s.min.y + EPS && q.y < s.max.y - EPS
+    );
+  }
+
+  moveAxis(axis, d) {
+    if (d === 0) return;
+    const p = this.p;
+    p.pos[axis] += d;
+    let head = null;
+    let headDist = Infinity;
+    for (const s of this.solids) {
+      if (!this.overlaps(s)) continue;
+      if (axis === 'y') {
+        if (d < 0) {
+          p.pos.y = s.max.y;
+          p.landed = s;
+        } else {
+          p.pos.y = s.min.y - PH;
+          const dist = Math.abs((s.min.x + s.max.x) / 2 - p.pos.x) + Math.abs((s.min.z + s.max.z) / 2 - p.pos.z);
+          if (dist < headDist) {
+            headDist = dist;
+            head = s;
+          }
+        }
+      } else {
+        p.pos[axis] = d > 0 ? s.min[axis] - HW : s.max[axis] + HW;
+        p.vel[axis] = 0;
+      }
+    }
+    if (head) {
+      p.vel.y = Math.min(p.vel.y, -1);
+      this.hitBlock(head);
+    }
+  }
+
+  updatePlayer(dt) {
+    const p = this.p;
+    p.invuln = Math.max(0, p.invuln - dt);
+    p.jumpPower = Math.max(0, p.jumpPower - dt);
+    p.speedPower = Math.max(0, p.speedPower - dt);
+    p.coyote -= dt;
+    p.buffer -= dt;
+    if (input.jumpPressed) p.buffer = 0.13;
+
+    // Camera-relative steering with acceleration + damping.
+    const yaw = this.cam.yaw;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const speed = RUN_SPEED * (p.speedPower > 0 ? 1.5 : 1);
+    let tx = (Math.cos(yaw) * input.x + fx * input.z) * speed;
+    let tz = (-Math.sin(yaw) * input.x + fz * input.z) * speed;
+    if (p.pounding) tx = tz = 0;
+    const moving = Math.hypot(tx, tz) > 0.1;
+    const accel = p.grounded ? (moving ? 55 : 45) : moving ? 26 : 6;
+    const dvx = tx - p.vel.x;
+    const dvz = tz - p.vel.z;
+    const dv = Math.hypot(dvx, dvz);
+    if (dv > 0) {
+      const step = Math.min(dv, accel * dt) / dv;
+      p.vel.x += dvx * step;
+      p.vel.z += dvz * step;
+    }
+    if (moving) {
+      const want = Math.atan2(tx, tz);
+      let diff = want - p.facing;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      p.facing += diff * damp(16, dt);
+    }
+
+    // Jump, double jump, variable height.
+    if (p.buffer > 0 && !p.pounding) {
+      if (p.coyote > 0) {
+        p.vel.y = JUMP_V * (p.jumpPower > 0 ? 1.28 : 1);
+        p.jumps = 1;
+        p.cut = false;
+        p.coyote = 0;
+        p.buffer = 0;
+        p.grounded = false;
+        audio.jump();
+      } else if (p.jumps < 2) {
+        p.vel.y = DOUBLE_V * (p.jumpPower > 0 ? 1.2 : 1);
+        p.jumps = 2;
+        p.cut = false;
+        p.buffer = 0;
+        p.flip = 1;
+        audio.doubleJump();
+        this.burst(p.pos, 0xffffff, 6, 2.5);
+      }
+    }
+    if (!p.cut && !input.jump && p.vel.y > 0) {
+      p.vel.y *= 0.45;
+      p.cut = true;
+    }
+
+    // Ground-pound: hang for a beat, then slam straight down.
+    if (input.slamPressed && !p.grounded && !p.pounding) {
+      p.pounding = true;
+      p.hover = 0.2;
+      p.vel.set(0, 0, 0);
+      p.flip = 1;
+      audio.slamStart();
+    }
+    if (p.pounding && p.hover > 0) {
+      p.hover -= dt;
+      p.vel.y = p.hover > 0 ? 0 : -34;
+    } else {
+      p.vel.y = Math.max(p.vel.y - GRAVITY * dt, -42);
+    }
+
+    const fallSpeed = p.vel.y;
+    this.moveAxis('x', p.vel.x * dt);
+    this.moveAxis('z', p.vel.z * dt);
+    const wasGrounded = p.grounded;
+    p.grounded = false;
+    p.landed = null;
+    this.moveAxis('y', p.vel.y * dt);
+    if (p.landed) {
+      p.grounded = true;
+      p.ground = p.landed;
+      p.vel.y = 0;
+      p.coyote = 0.1;
+      p.jumps = 0;
+      p.cut = true;
+      if (p.pounding) this.poundImpact();
+      else if (!wasGrounded && fallSpeed < -8) {
+        p.squash = 1;
+        this.burst(p.pos, 0xffffff, 4, 2);
+      }
+    } else {
+      p.ground = null;
+    }
+
+    // Hazards.
+    if (p.pos.y < WATER_Y + 0.3) {
+      this.burst(p.pos, 0xffffff, 14, 6);
+      return this.loseLife(true);
+    }
+    for (const l of this.lavas) {
+      if (p.pos.x > l.minX - 0.1 && p.pos.x < l.maxX + 0.1 && p.pos.z > l.minZ - 0.1 && p.pos.z < l.maxZ + 0.1 && p.pos.y < l.y + 0.3 && p.pos.y > l.y - 0.5) {
+        this.burst(p.pos, 0xff7b00, 16, 6);
+        return this.loseLife(true);
+      }
+    }
+
+    // Pickups.
+    const cy = p.pos.y + PH / 2;
+    for (const c of this.pickups) {
+      if (!c.ready) continue;
+      const dx = c.pos.x - p.pos.x;
+      const dz = c.pos.z - p.pos.z;
+      const dy = c.pos.y - cy;
+      if (dx * dx + dz * dz < 0.85 && Math.abs(dy) < 1.15) this.collect(c);
+    }
+    this.pickups = this.pickups.filter((c) => !c.gone);
+
+    // Checkpoints.
+    for (const c of this.checkpoints) {
+      if (!c.active && c.pos.distanceToSquared(p.pos) < 3.2) {
+        this.checkpoints.forEach((o) => (o.active = false));
+        c.active = true;
+        this.respawnAt = c.pos.clone();
+        audio.checkpoint();
+        this.ui.toast('Checkpoint!');
+        this.burst(c.pos.clone().setY(c.pos.y + 1.9), 0x5eead4, 12, 4);
+      }
+    }
+
+    // Slimes: stomp from above, otherwise take a hit.
+    for (const s of this.slimes) {
+      if (!s.alive) continue;
+      const sp = s.mesh.position;
+      const dx = sp.x - p.pos.x;
+      const dz = sp.z - p.pos.z;
+      if (Math.abs(dx) > 0.9 || Math.abs(dz) > 0.9 || p.pos.y > sp.y + 0.85 || p.pos.y + PH < sp.y) continue;
+      if (p.pounding || (fallSpeed < -1 && p.pos.y > sp.y + 0.25)) {
+        this.defeat(s);
+        if (!p.pounding) {
+          p.vel.y = input.jump ? JUMP_V * 1.05 : 9;
+          p.cut = true;
+          p.jumps = 1;
+          p.grounded = false;
+        }
+      } else if (p.invuln <= 0) {
+        const len = Math.hypot(dx, dz) || 1;
+        p.vel.x = (-dx / len) * 9;
+        p.vel.z = (-dz / len) * 9;
+        p.vel.y = 8;
+        this.loseLife(false);
+      }
+    }
+
+    // Goal.
+    if (this.flag && this.state === 'playing') {
+      const f = this.flag.pos;
+      if (Math.hypot(f.x - p.pos.x, f.z - p.pos.z) < 1.25 && p.pos.y > f.y - 0.5 && p.pos.y < f.y + 7) this.finishLevel();
+    }
+  }
+
+  poundImpact() {
+    const p = this.p;
+    p.pounding = false;
+    p.squash = 1.4;
+    this.cam.shake = 0.35;
+    audio.pound();
+    this.burst(p.pos, 0xffffff, 14, 5);
+    const g = p.ground;
+    if (g && g.kind) this.hitBlock(g);
+    for (const s of this.slimes) {
+      if (!s.alive) continue;
+      const sp = s.mesh.position;
+      if (Math.hypot(sp.x - p.pos.x, sp.z - p.pos.z) < 2.6 && Math.abs(sp.y - p.pos.y) < 1.5) this.defeat(s);
+    }
+  }
+
+  defeat(s) {
+    s.alive = false;
+    audio.stomp();
+    this.addScore(200);
+    const color = s.mesh.children[0].material.color.getHex();
+    this.burst(s.mesh.position.clone().setY(s.mesh.position.y + 0.3), color, 12, 4);
+    this.tween(0.35, (k) => s.mesh.scale.set(1 + k * 0.6, Math.max(0.05, 1 - k * 1.2), 1 + k * 0.6), () => this.level.remove(s.mesh));
+  }
+
+  hitBlock(s) {
+    if (s.kind === 'brick') {
+      audio.brick();
+      this.addScore(50);
+      this.burst(s.mesh.position, 0xc8632b, 14, 6);
+      this.level.remove(s.mesh);
+      this.solids.splice(this.solids.indexOf(s), 1);
+      if (this.p.ground === s) this.p.grounded = false;
+      return;
+    }
+    if (s.kind !== 'mystery') return;
+    audio.block();
+    const baseY = (s.min.y + s.max.y) / 2;
+    this.tween(0.18, (k) => (s.mesh.position.y = baseY + Math.sin(k * Math.PI) * 0.3));
+    if (s.left <= 0) return;
+    s.left--;
+    const top = new THREE.Vector3(s.mesh.position.x, s.max.y, s.mesh.position.z);
+    if (s.content === 'coin' || s.content === 'multi') {
+      const coin = M.makeCoin();
+      coin.position.copy(top);
+      this.level.add(coin);
+      audio.coin();
+      this.addCoins(1);
+      this.tween(0.45, (k) => {
+        coin.position.y = top.y + 0.5 + Math.sin(k * Math.PI * 0.8) * 2;
+        coin.rotation.y = k * 12;
+      }, () => {
+        this.level.remove(coin);
+        this.burst(coin.position, 0xffd23f, 5, 2);
+      });
+    } else {
+      const mesh = M.makePowerup(s.content);
+      mesh.position.copy(top);
+      this.level.add(mesh);
+      audio.itemAppear();
+      const item = { type: s.content, mesh, pos: mesh.position, phase: 0, ready: false, baseY: top.y + 0.75 };
+      this.pickups.push(item);
+      this.tween(0.4, (k) => (mesh.position.y = top.y + k * 0.75), () => (item.ready = true));
+    }
+    if (s.left <= 0) s.mesh.material = M.usedBlockMaterial();
+  }
+
+  collect(c) {
+    c.gone = true;
+    this.level.remove(c.mesh);
+    if (c.type === 'coin') {
+      audio.coin();
+      this.addCoins(1);
+      this.burst(c.pos, 0xffd23f, 5, 2.5);
+      return;
+    }
+    audio.powerup();
+    this.addScore(500);
+    if (c.type === 'jump') {
+      this.p.jumpPower = POWER_TIME;
+      this.ui.toast('Super Jump!');
+      this.burst(c.pos, 0x37e08a, 16, 5);
+    } else {
+      this.p.speedPower = POWER_TIME;
+      this.ui.toast('Turbo Dash!');
+      this.burst(c.pos, 0x3aa8ff, 16, 5);
+    }
+  }
+
+  updateWorld(dt, idle = false) {
+    const t = this.clock;
+    for (const c of this.pickups) {
+      c.mesh.rotation.y = t * 3 + c.phase;
+      if (c.type !== 'coin' && c.ready) c.mesh.position.y = c.baseY + Math.sin(t * 3) * 0.12;
+    }
+    for (const s of this.slimes) {
+      if (!s.alive) continue;
+      s.t += dt;
+      const off = Math.sin(s.t * 0.9) * s.range;
+      const dir = Math.cos(s.t * 0.9) >= 0 ? 1 : -1;
+      s.mesh.position[s.axis] = s.origin[s.axis] + off;
+      const hop = Math.abs(Math.sin(s.t * 5));
+      s.mesh.position.y = s.origin.y + hop * 0.12;
+      s.mesh.scale.set(1 + (1 - hop) * 0.12, 0.88 + hop * 0.2, 1 + (1 - hop) * 0.12);
+      const want = s.axis === 'x' ? (dir > 0 ? Math.PI / 2 : -Math.PI / 2) : dir > 0 ? 0 : Math.PI;
+      let diff = want - s.mesh.rotation.y;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      s.mesh.rotation.y += diff * damp(8, dt);
+    }
+    for (const l of this.lavas) l.mesh.userData.mat.emissiveIntensity = 0.75 + Math.sin(t * 4 + l.minX) * 0.25;
+    for (const c of this.checkpoints) {
+      const gem = c.mesh.userData.gem;
+      gem.rotation.y = t * 2;
+      gem.material.color.setHex(c.active ? 0x2dd4bf : 0x94a3b8);
+      gem.material.emissive.setHex(c.active ? 0x0f766e : 0x000000);
+    }
+    if (this.flag) this.flag.mesh.userData.ball.rotation.y = t * 2;
+    for (const c of this.clouds) {
+      c.position.x += dt * 0.6;
+      if (c.position.x > 95) c.position.x = -95;
+    }
+    if (idle) return;
+  }
+
+  updateFx(dt) {
+    for (const tw of this.tweens) {
+      tw.t += dt;
+      const k = Math.min(1, tw.t / tw.d);
+      tw.fn(k);
+      if (k >= 1) {
+        tw.dead = true;
+        if (tw.done) tw.done();
+      }
+    }
+    this.tweens = this.tweens.filter((t) => !t.dead);
+    for (const q of this.parts) {
+      q.life -= dt;
+      q.vel.y -= 18 * dt;
+      q.mesh.position.addScaledVector(q.vel, dt);
+      q.mesh.rotation.x += dt * 8;
+      q.mesh.rotation.z += dt * 6;
+      if (q.life <= 0) this.level.remove(q.mesh);
+    }
+    this.parts = this.parts.filter((q) => q.life > 0);
+  }
+
+  animateHero(dt) {
+    const p = this.p;
+    const h = this.hero;
+    const { body, armL, armR, legL, legR, tip } = h.userData.parts;
+    h.position.copy(p.pos);
+    h.rotation.y = p.facing;
+    h.visible = this.state !== 'gameover' && (p.invuln <= 0 || Math.floor(this.clock * 18) % 2 === 0);
+    const speed = Math.hypot(p.vel.x, p.vel.z);
+    p.squash = Math.max(0, p.squash - dt * 5);
+    p.flip = Math.max(0, p.flip - dt * 2.6);
+    let sy = 1 - Math.min(0.35, p.squash * 0.3);
+    if (!p.grounded) sy = 1 + Math.min(0.18, Math.abs(p.vel.y) * 0.012);
+    const sxz = 1 / Math.sqrt(sy);
+    body.scale.set(sxz, sy, sxz);
+    body.rotation.x = p.flip > 0 ? (1 - p.flip) * Math.PI * 2 : p.grounded ? Math.min(0.22, speed * 0.025) : 0;
+    body.position.y = p.flip > 0 ? Math.sin((1 - p.flip) * Math.PI) * 0.2 : 0;
+    tip.rotation.y += dt * 4;
+    if (p.pounding) {
+      legL.rotation.x = legR.rotation.x = -1.2;
+      armL.rotation.x = armR.rotation.x = Math.PI;
+    } else if (!p.grounded) {
+      legL.rotation.x = 0.5;
+      legR.rotation.x = -0.4;
+      armL.rotation.x = armR.rotation.x = p.vel.y > 0 ? -2.6 : -1.2;
+    } else if (speed > 0.5) {
+      p.runT += dt * (6 + speed * 1.6);
+      const s = Math.sin(p.runT);
+      legL.rotation.x = s * 0.9;
+      legR.rotation.x = -s * 0.9;
+      armL.rotation.x = -s * 0.8;
+      armR.rotation.x = s * 0.8;
+    } else {
+      const idle = Math.sin(this.clock * 2.5) * 0.08;
+      legL.rotation.x = legR.rotation.x = 0;
+      armL.rotation.x = idle;
+      armR.rotation.x = -idle;
+    }
+
+    // Blob shadow: find the surface directly beneath to aid depth reading.
+    let floor = -Infinity;
+    for (const s of this.solids) {
+      if (p.pos.x > s.min.x && p.pos.x < s.max.x && p.pos.z > s.min.z && p.pos.z < s.max.z && s.max.y <= p.pos.y + 0.05 && s.max.y > floor) floor = s.max.y;
+    }
+    this.blob.visible = floor > -Infinity && h.visible;
+    if (this.blob.visible) {
+      const gap = p.pos.y - floor;
+      this.blob.position.set(p.pos.x, floor + 0.03, p.pos.z);
+      this.blob.scale.setScalar(Math.max(0.45, 1.1 - gap * 0.08));
+      this.blob.material.opacity = Math.max(0.15, 0.4 - gap * 0.03);
+    }
+  }
+
+  updateCamera(dt) {
+    const p = this.p;
+    const c = this.cam;
+    if (this.state === 'playing') c.yaw += -input.camDrag * 0.006 - input.camTurn * dt * 2.2;
+    // Lagged follow: horizontal tracks quickly, vertical eases to avoid
+    // bobbing with every jump.
+    const k = damp(7, dt);
+    c.target.x += (p.pos.x - c.target.x) * k;
+    c.target.z += (p.pos.z - c.target.z) * k;
+    c.target.y += (p.pos.y - c.target.y) * damp(p.grounded ? 5 : 2.2, dt);
+    const dist = this.camera.aspect < 1 ? 13 : 11.5;
+    const shake = c.shake > 0 ? c.shake * 0.5 : 0;
+    c.shake = Math.max(0, c.shake - dt);
+    this.camera.position.set(
+      c.target.x + Math.sin(c.yaw) * dist + (Math.random() - 0.5) * shake,
+      c.target.y + 6.2 + (Math.random() - 0.5) * shake,
+      c.target.z + Math.cos(c.yaw) * dist,
+    );
+    this.camera.lookAt(c.target.x, c.target.y + 1.6, c.target.z);
+    this.sun.position.set(c.target.x + 10, c.target.y + 24, c.target.z + 8);
+    this.sun.target.position.copy(c.target);
+  }
+
+  syncHud(force = false) {
+    this.hudT = (this.hudT || 0) + 1;
+    if (!force && this.hudT % 6) return;
+    this.ui.hud({
+      coins: this.coins, score: this.score, lives: this.lives, time: Math.max(0, Math.ceil(this.time)),
+      high: this.high, world: `${this.levelIndex + 1}`, jump: this.p.jumpPower / POWER_TIME, speed: this.p.speedPower / POWER_TIME,
+    });
+  }
+}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#2f7df6" />
+    <meta name="description" content="Astra Dash — a low-poly 3D platformer that runs in your browser." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Astra Dash</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-row">
+        <div class="pill"><span class="ico coin"></span><b id="h-coins">00</b></div>
+        <div class="pill"><span class="lbl">SCORE</span><b id="h-score">000000</b></div>
+        <div class="pill"><span class="ico heart">♥</span><b id="h-lives">3</b></div>
+        <div class="pill"><span class="lbl">TIME</span><b id="h-time">000</b></div>
+        <div class="pill wide"><span class="lbl">BEST</span><b id="h-high">000000</b></div>
+        <span class="spacer"></span>
+        <button id="btn-mute" class="round" aria-label="Toggle sound">♪</button>
+        <button id="btn-pause" class="round" aria-label="Pause">Ⅱ</button>
+      </div>
+      <div class="powers">
+        <div id="pw-jump" class="power jump"><span>▲ Super Jump</span><i></i></div>
+        <div id="pw-speed" class="power speed"><span>» Turbo Dash</span><i></i></div>
+      </div>
+    </div>
+    <div id="toast"></div>
+
+    <div id="touch">
+      <div id="dpad"><span class="a u">▲</span><span class="a d">▼</span><span class="a l">◀</span><span class="a r">▶</span><div id="dpad-nub"></div></div>
+      <button id="btn-slam" class="tbtn">SLAM</button>
+      <button id="btn-jump" class="tbtn">JUMP</button>
+    </div>
+
+    <div id="screen-menu" class="screen">
+      <div class="card">
+        <h1><span>ASTRA</span> DASH</h1>
+        <p class="tag">Hop the floating isles, bop the slimes, raise the flag!</p>
+        <button class="big" data-action="start">PLAY</button>
+        <p class="best">Best score: <b id="menu-high">0</b></p>
+        <div class="help">
+          <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
+          <div><kbd>Space</kbd> jump · press again to double jump</div>
+          <div><kbd>Shift</kbd> ground-pound in mid-air</div>
+          <div><kbd>Q</kbd><kbd>E</kbd> or drag to turn camera · <kbd>P</kbd> pause · <kbd>M</kbd> mute</div>
+          <div class="touch-only">Touch: D-pad to move, JUMP / SLAM buttons, drag the view to turn</div>
+        </div>
+      </div>
+    </div>
+    <div id="screen-pause" class="screen hidden">
+      <div class="card"><h2>Paused</h2><button class="big" data-action="resume">RESUME</button><button class="ghost" data-action="start">Restart game</button></div>
+    </div>
+    <div id="screen-complete" class="screen hidden">
+      <div class="card">
+        <h2 id="c-title">Course clear!</h2>
+        <p>Time bonus <b id="c-bonus">0</b></p>
+        <p>Score <b id="c-score">0</b> · Best <b id="c-high">0</b></p>
+        <button class="big" data-action="next" id="c-next">NEXT WORLD</button>
+      </div>
+    </div>
+    <div id="screen-gameover" class="screen hidden">
+      <div class="card"><h2>Game over</h2><p>Score <b id="g-score">0</b> · Best <b id="g-high">0</b></p><button class="big" data-action="start">TRY AGAIN</button></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
