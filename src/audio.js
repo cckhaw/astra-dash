@@ -189,6 +189,11 @@ class AudioEngine {
   checkpoint() {
     this.seq([67, 72, 79], 0.08, { type: 'triangle', vol: 0.3 });
   }
+  splash() {
+    const t = this.now;
+    this.noise(t, 0.35, { vol: 0.3, freq: 1400, type: 'bandpass' });
+    this.tone(500, t, 0.25, { type: 'sine', vol: 0.2, to: 120 });
+  }
   hurt() {
     this.tone(440, this.now, 0.4, { type: 'sawtooth', vol: 0.18, to: 70 });
   }

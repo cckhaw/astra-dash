@@ -21,6 +21,111 @@ const THEMES = {
 
 export const LEVELS = [
   {
+    // World 1: solid ground all the way, with two small rivers to hop.
+    // Falling in the water only costs a splash, not a life.
+    name: 'Green Valley',
+    theme: THEMES.meadow,
+    time: 240,
+    land: true,
+    waterY: -1,
+    safeWater: true,
+    build(b) {
+      b.spawn(0, 0, 5);
+      b.island(0, -6, 22, 28, 0);
+      b.tree(-8.5, 0, 5);
+      b.tree(8.5, 0, 2);
+      b.tree(-8.5, 0, -6);
+      b.tree(8.5, 0, -13);
+      b.coinLine(0, 0, 1, 0, 0, -5, 4);
+      b.island(-5, -9, 5, 5, 1, { h: 1 });
+      b.coinLine(-6, 1, -9, -4, 1, -9, 3);
+      b.mystery(3, 0, -9, 'coin');
+      b.mystery(4.2, 0, -9, 'coin');
+      b.slime(2, 0, -15, 'x', 3);
+
+      // first river: a short hop
+      b.coinLine(0, 1.2, -20.4, 0, 1.2, -22.1, 3);
+      b.island(0, -35.25, 22, 25.5, 0);
+      b.checkpoint(-3, 0, -24.5);
+      b.tree(-8.5, 0, -26);
+      b.tree(8.5, 0, -31);
+      b.brick(-1.2, 0, -30);
+      b.mystery(0, 0, -30, 'speed');
+      b.brick(1.2, 0, -30);
+      b.slime(-4, 0, -34, 'x', 3);
+      b.coinLine(-6, 0, -36, 6, 0, -36, 5);
+      b.island(0, -44, 22, 8, 1, { h: 1 });
+      b.slime(4, 1, -44, 'x', 3);
+      b.coinLine(-3, 1, -46, 3, 1, -46, 3);
+
+      // second river: a little wider, with a stepping stone
+      b.island(0, -49.75, 2.6, 2, 0.4, { h: 2 });
+      b.coin(0, 0.4, -49.75);
+      b.island(0, -61.5, 22, 20, 0);
+      b.checkpoint(-3, 0, -53.5);
+      b.tree(-8.5, 0, -55);
+      b.tree(8.5, 0, -58);
+      b.mystery(4, 0, -57, 'jump');
+      b.slime(-3, 0, -59, 'x', 3);
+      b.coinRing(0, 0, -66, 2.6, 8);
+      b.flag(0, 0, -66);
+    },
+  },
+  {
+    // World 2: still on land, but with stepping stones, a raft, a lava
+    // puddle and some climbing.
+    name: 'Riverbend Hills',
+    theme: THEMES.meadow,
+    time: 240,
+    land: true,
+    waterY: -1,
+    safeWater: true,
+    build(b) {
+      b.spawn(0, 0, 4);
+      b.island(0, -4, 20, 20, 0);
+      b.tree(-7.5, 0, 3);
+      b.tree(7.5, 0, -2);
+      b.coinLine(-3, 0, 0, 3, 0, 0, 4);
+      b.mystery(-0.6, 0, -5, 'coin');
+      b.mystery(0.6, 0, -5, 'multi');
+      b.slime(0, 0, -9, 'x', 4);
+
+      // stepping stones across the river
+      b.island(-2, -16.5, 3, 3, 0.3, { h: 2 });
+      b.coin(-2, 0.3, -16.5);
+      b.island(1.5, -20, 3, 3, 0.3, { h: 2 });
+      b.coin(1.5, 0.3, -20);
+
+      b.island(0, -30, 20, 16, 0);
+      b.checkpoint(2, 0, -24);
+      b.island(-5, -30, 6, 6, 1.2, { h: 1.2 });
+      b.island(-5, -30, 3, 3, 2.4, { h: 1.2 });
+      b.mystery(-5, 2.4, -30, 'jump');
+      b.coinLine(-7, 1.2, -32.2, -3, 1.2, -32.2, 3);
+      b.lava(5, -31, 4, 3, 0);
+      b.slime(4, 0, -27, 'x', 3);
+      b.slime(0, 0, -35, 'x', 5);
+      b.brick(4.4, 0, -35.5);
+      b.mystery(5.6, 0, -35.5, 'speed');
+      b.tree(8, 0, -36);
+
+      // a raft ferries across the second river
+      b.mover(0, -42, 4, 3.5, 0, { axis: 'z', range: 2, speed: 0.8 });
+      b.coinLine(0, 1.2, -40, 0, 1.2, -44, 3);
+
+      b.island(0, -56, 20, 20, 0);
+      b.checkpoint(-3, 0, -48);
+      b.tree(-8, 0, -50);
+      b.tree(8, 0, -50);
+      b.slime(5, 0, -51, 'x', 3);
+      b.island(0, -54.2, 4, 1.6, 0.75, { h: 0.75 });
+      b.island(0, -60, 12, 10, 1.5, { h: 1.5 });
+      b.slime(0, 1.5, -57.5, 'x', 4);
+      b.coinRing(0, 1.5, -61.5, 2.6, 8);
+      b.flag(0, 1.5, -61.5);
+    },
+  },
+  {
     name: 'Sunny Isles',
     theme: THEMES.meadow,
     time: 200,
