@@ -11,6 +11,7 @@ const RUN_SPEED = 7.6;
 const HW = 0.34; // player half-width
 const PH = 1.25; // player height
 const EPS = 0.001;
+const LEDGE_HELP = 0.6; // how far below a ledge top a near-miss still counts
 const WATER_Y = -9;
 const HS_KEY = 'astra-dash-highscore';
 const POWER_TIME = 12;
@@ -50,9 +51,11 @@ export class Game {
 
     this.hero = M.makeHero();
     this.blob = M.makeBlobShadow();
-    this.scene.add(this.hero, this.blob);
+    this.ring = M.makeLandingRing();
+    this.beam = M.makeDropLine();
+    this.scene.add(this.hero, this.blob, this.ring, this.beam);
 
-    this.cam = { yaw: 0, target: new THREE.Vector3(), shake: 0 };
+    this.cam = { yaw: 0, target: new THREE.Vector3(), shake: 0, lift: 0 };
     this.state = 'menu';
     this.levelIndex = 0;
     this.score = 0;
@@ -579,6 +582,14 @@ export class Game {
           }
         }
       } else {
+        // Ledge assist: clipping the lip of a ledge by a small margin
+        // lifts the player onto it instead of bouncing them off the side.
+        const lip = s.max.y - p.pos.y;
+        if (lip > 0 && lip <= LEDGE_HELP && p.vel.y <= 4 && !p.pounding) {
+          p.pos.y = s.max.y;
+          if (p.vel.y < 0) p.vel.y = 0;
+          continue;
+        }
         p.pos[axis] = d > 0 ? s.min[axis] - HW : s.max[axis] + HW;
         p.vel[axis] = 0;
       }
@@ -607,7 +618,8 @@ export class Game {
     let tz = (-Math.sin(yaw) * input.x + fz * input.z) * speed;
     if (p.pounding) tx = tz = 0;
     const moving = Math.hypot(tx, tz) > 0.1;
-    const accel = p.grounded ? (moving ? 55 : 45) : moving ? 26 : 6;
+    // Strong air control: steer freely mid-jump and brake by letting go.
+    const accel = p.grounded ? (moving ? 55 : 45) : moving ? 40 : 18;
     const dvx = tx - p.vel.x;
     const dvz = tz - p.vel.z;
     const dv = Math.hypot(dvx, dvz);
@@ -660,7 +672,9 @@ export class Game {
       p.hover -= dt;
       p.vel.y = p.hover > 0 ? 0 : -34;
     } else {
-      p.vel.y = Math.max(p.vel.y - GRAVITY * dt, -42);
+      // A little hang time at the top of a held jump gives a moment to aim.
+      const hang = input.jump && Math.abs(p.vel.y) < 3.5 ? 0.55 : 1;
+      p.vel.y = Math.max(p.vel.y - GRAVITY * hang * dt, -42);
     }
 
     const fallSpeed = p.vel.y;
@@ -674,7 +688,7 @@ export class Game {
       p.grounded = true;
       p.ground = p.landed;
       p.vel.y = 0;
-      p.coyote = input.touch ? 0.18 : 0.1;
+      p.coyote = input.touch ? 0.2 : 0.15;
       p.jumps = 0;
       p.cut = true;
       if (p.pounding) this.poundImpact();
@@ -1008,6 +1022,17 @@ export class Game {
       if (p.pos.x > s.min.x && p.pos.x < s.max.x && p.pos.z > s.min.z && p.pos.z < s.max.z && s.max.y <= p.pos.y + 0.05 && s.max.y > floor) floor = s.max.y;
     }
     this.blob.visible = floor > -Infinity && h.visible;
+    // In the air, a bright ring and a faint drop line mark exactly where
+    // the hero will come down; both vanish when there is nothing below.
+    const marking = this.blob.visible && !p.grounded && this.state === 'playing';
+    this.ring.visible = this.beam.visible = marking;
+    if (marking) {
+      const gap = p.pos.y - floor;
+      this.ring.position.set(p.pos.x, floor + 0.05, p.pos.z);
+      this.ring.scale.setScalar(1 + Math.sin(this.clock * 10) * 0.08);
+      this.beam.position.set(p.pos.x, floor + gap / 2, p.pos.z);
+      this.beam.scale.y = Math.max(0.01, gap);
+    }
     if (this.blob.visible) {
       const gap = p.pos.y - floor;
       this.blob.position.set(p.pos.x, floor + 0.03, p.pos.z);
@@ -1031,15 +1056,18 @@ export class Game {
     c.target.x += (p.pos.x - c.target.x) * k;
     c.target.z += (p.pos.z - c.target.z) * k;
     c.target.y += (p.pos.y - c.target.y) * damp(p.grounded ? 5 : 2.2, dt);
+    // Rise for a more top-down view while airborne, so gaps and landing
+    // spots are easier to judge.
+    c.lift += ((!p.grounded && this.state === 'playing' ? 3.2 : 0) - c.lift) * damp(p.grounded ? 2.5 : 5, dt);
     const dist = this.camera.aspect < 1 ? 13 : 11.5;
     const shake = c.shake > 0 ? c.shake * 0.5 : 0;
     c.shake = Math.max(0, c.shake - dt);
     this.camera.position.set(
       c.target.x + Math.sin(c.yaw) * dist + (Math.random() - 0.5) * shake,
-      c.target.y + 6.2 + (Math.random() - 0.5) * shake,
+      c.target.y + 6.2 + c.lift + (Math.random() - 0.5) * shake,
       c.target.z + Math.cos(c.yaw) * dist,
     );
-    this.camera.lookAt(c.target.x, c.target.y + 1.6, c.target.z);
+    this.camera.lookAt(c.target.x, c.target.y + 1.6 - c.lift * 0.25, c.target.z);
     this.sun.position.set(c.target.x + 10, c.target.y + 24, c.target.z + 8);
     this.sun.target.position.copy(c.target);
   }

@@ -16,6 +16,8 @@ Cross five worlds that start on solid ground (with shallow rivers that only cost
 
 Every world has its own season and weather: a spring valley with drifting blossom, rainy autumn hills, sandy tropical isles, a desert mesa at dusk with embers, and a snowy summit at night under an aurora.
 
+Jumping is assisted: while airborne a ring and drop line mark where you will land, the camera rises for a clearer view of the gap, you can steer and brake in mid-air, and narrowly clipping the edge of a ledge lifts you onto it.
+
 Each world opens with a short story card: Astra the star-scout is recovering the five Star Sparks shaken out of the Comet's engine, one per world.
 
 ## Worlds
