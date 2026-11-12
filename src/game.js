@@ -122,50 +122,20 @@ export class Game {
     this.spawnPoint = new THREE.Vector3(0, 0, 0);
 
     this.scene.background = M.makeSky(theme.skyTop, theme.skyBottom);
-    this.scene.fog = new THREE.Fog(theme.fog, 55, 150);
+    this.scene.fog = new THREE.Fog(theme.fog, theme.fogNear, theme.fogFar);
     this.sun.color.set(theme.sun);
-    this.hemi.intensity = 1.6 * theme.ambient;
+    this.sun.intensity = theme.sunPower;
+    this.hemi.intensity = theme.hemiPower;
+    this.hemi.color.set(theme.hemiSky);
+    this.hemi.groundColor.set(theme.hemiGround);
 
     this.waterY = def.waterY ?? WATER_Y;
     this.safeWater = !!def.safeWater;
     def.build(this.builder());
 
-    // Scenery: sea, clouds, rainbow, far-off islets.
-    const water = new THREE.Mesh(
-      new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: theme.water, transparent: true, opacity: 0.92 }),
-    );
-    water.position.set(0, this.waterY, -40);
-    water.receiveShadow = true;
-    this.level.add(water);
-    this.clouds = [];
-    for (let i = 0; i < 16; i++) {
-      const c = M.makeCloud();
-      c.position.set(-90 + Math.random() * 180, 10 + Math.random() * 22, 30 - Math.random() * 170);
-      c.scale.setScalar(0.8 + Math.random());
-      this.clouds.push(c);
-      this.level.add(c);
-    }
-    if (theme.rainbow) {
-      const r = M.makeRainbow();
-      r.position.set(-10, this.waterY, -150);
-      this.level.add(r);
-    }
-    for (let i = 0; i < 9; i++) {
-      const s = 4 + Math.random() * 6;
-      const side = i % 2 ? 1 : -1;
-      const ih = 3 + Math.random() * 5;
-      const isle = M.makeIsland(s, ih, s, theme);
-      // Land courses get hills rising from the water; sky courses get floating islets.
-      const iy = def.land ? this.waterY + ih / 2 - 1 : -4 + Math.random() * 8;
-      isle.position.set(side * (26 + Math.random() * 30), iy, 10 - i * 11);
-      this.level.add(isle);
-      if (i % 3 === 0) {
-        const t = M.makeTree(theme);
-        t.position.copy(isle.position).y += isle.children[1].position.y + 0.2;
-        this.level.add(t);
-      }
-    }
+    this.scatterProps(theme);
+    this.buildScenery(def, theme);
+    this.buildWeather(theme.weather);
 
     this.time = def.time;
     this.respawn(true);
@@ -173,6 +143,143 @@ export class Game {
     this.cam.yaw = 0;
     this.cam.target.copy(this.p.pos);
     this.syncHud(true);
+  }
+
+  // Sea, sky, clouds and distant landforms; each theme picks its own.
+  buildScenery(def, theme) {
+    const water = new THREE.Mesh(
+      new THREE.PlaneGeometry(700, 700).rotateX(-Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: theme.water, emissive: theme.waterGlow || 0x000000, transparent: true, opacity: 0.92 }),
+    );
+    water.position.set(0, this.waterY, -70);
+    water.receiveShadow = true;
+    this.level.add(water);
+
+    this.clouds = [];
+    for (let i = 0; i < theme.clouds.count; i++) {
+      const c = M.makeCloud(theme.clouds);
+      c.position.set(-95 + Math.random() * 190, theme.clouds.low + Math.random() * 20, 40 - Math.random() * 240);
+      c.scale.setScalar(0.8 + Math.random() * theme.clouds.size);
+      this.clouds.push(c);
+      this.level.add(c);
+    }
+
+    // Things painted on the sky travel with the camera so they never get closer.
+    this.sky = new THREE.Group();
+    this.level.add(this.sky);
+    const k = theme.sky;
+    if (k.rainbow) {
+      const r = M.makeArc();
+      r.position.set(-10, this.waterY, -190);
+      this.sky.add(r);
+    }
+    if (k.aurora) {
+      const a = M.makeArc(['#3dffb0', '#35e0c8', '#4dabf7', '#9b6bff'], { radius: 110, width: 3.2, opacity: 0.3 });
+      a.position.set(20, this.waterY - 30, -230);
+      a.scale.y = 0.75;
+      this.sky.add(a);
+    }
+    if (k.disc) {
+      const d = M.makeDisc(k.disc.color, k.disc.size, k.disc.glow);
+      d.position.set(k.disc.x, k.disc.y, -260);
+      this.sky.add(d);
+    }
+    if (k.stars) this.sky.add(M.makeStars());
+
+    for (let i = 0; i < 16; i++) {
+      const side = i % 2 ? 1 : -1;
+      const x = side * (27 + Math.random() * 32);
+      const z = 14 - i * 10.5;
+      let obj;
+      if (theme.far === 'peaks') {
+        const h = 16 + Math.random() * 22;
+        obj = M.makePeak(6 + Math.random() * 6, h, theme.rock);
+        obj.position.set(x * 1.25, this.waterY - 1, z);
+      } else {
+        const w = theme.far === 'mesas' ? 3.5 + Math.random() * 4 : 4 + Math.random() * 6;
+        const h = theme.far === 'mesas' ? 14 + Math.random() * 16 : 3 + Math.random() * 5;
+        obj = M.makeIsland(w, h, w, theme);
+        // Hills and mesas rise from the sea; islets float.
+        const y = theme.far === 'isles' ? -4 + Math.random() * 9 : this.waterY + h / 2 - 1;
+        obj.position.set(x, y, z);
+        if (i % 3 === 0) {
+          const t = M.makeTree(theme);
+          t.position.set(x, y + h / 2, z);
+          this.level.add(t);
+        }
+      }
+      this.level.add(obj);
+    }
+  }
+
+  // Scatter small decorations over the big ledges, keeping clear of
+  // anything the player interacts with.
+  scatterProps(theme) {
+    for (const s of this.solids.filter((o) => o.deco)) {
+      const w = s.max.x - s.min.x - 1.6;
+      const d = s.max.z - s.min.z - 1.6;
+      const count = Math.min(16, Math.floor((w * d) / 16));
+      for (let i = 0; i < count; i++) {
+        const x = s.min.x + 0.8 + Math.random() * w;
+        const z = s.min.z + 0.8 + Math.random() * d;
+        const top = s.max.y;
+        const near = (px, pz, r) => Math.abs(px - x) < r && Math.abs(pz - z) < r;
+        if (near(this.spawnPoint.x, this.spawnPoint.z, 1.5)) continue;
+        if (this.solids.some((o) => o !== s && o.max.y > top && x > o.min.x - 0.9 && x < o.max.x + 0.9 && z > o.min.z - 0.9 && z < o.max.z + 0.9)) continue;
+        if (this.lavas.some((l) => x > l.minX - 0.7 && x < l.maxX + 0.7 && z > l.minZ - 0.7 && z < l.maxZ + 0.7 && Math.abs(l.y - top) < 0.5)) continue;
+        if (this.checkpoints.some((c) => near(c.pos.x, c.pos.z, 1.2))) continue;
+        if (this.pickups.some((c) => near(c.pos.x, c.pos.z, 0.7) && Math.abs(c.pos.y - top) < 1.5)) continue;
+        const prop = M.makeProp(theme.props[Math.floor(Math.random() * theme.props.length)], theme);
+        prop.position.set(x, top, z);
+        this.level.add(prop);
+      }
+    }
+  }
+
+  // Weather is a cloud of particles in a box that follows the camera.
+  buildWeather(kind) {
+    this.weather = null;
+    const cfg = {
+      petals: { n: 110, color: 0xffb7d5, size: 0.26, vy: -1.1, vx: 0.9, sway: 1.1 },
+      rain: { n: 650, color: 0xd6e6ff, vy: -27, vx: -4, sway: 0, lines: true },
+      embers: { n: 130, color: 0xffa94d, size: 0.2, vy: 1.7, vx: 0.4, sway: 0.7 },
+      snow: { n: 520, color: 0xffffff, size: 0.2, vy: -2.3, vx: 0.6, sway: 0.9 },
+    }[kind];
+    if (!cfg) return;
+    const per = cfg.lines ? 2 : 1;
+    const pos = new Float32Array(cfg.n * per * 3);
+    const base = [];
+    for (let i = 0; i < cfg.n; i++) base.push((Math.random() - 0.5) * 46, Math.random() * 26, (Math.random() - 0.5) * 46);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const obj = cfg.lines
+      ? new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: cfg.color, transparent: true, opacity: 0.45 }))
+      : new THREE.Points(geo, new THREE.PointsMaterial({ color: cfg.color, size: cfg.size, map: M.dotTexture(), transparent: true, depthWrite: false, opacity: 0.95 }));
+    obj.frustumCulled = false;
+    this.level.add(obj);
+    this.weather = { cfg, base, pos, geo, per };
+  }
+
+  updateWeather(dt) {
+    const w = this.weather;
+    if (this.sky) this.sky.position.set(this.cam.target.x, 0, this.cam.target.z);
+    if (!w) return;
+    const { cfg, base, pos } = w;
+    const t = this.clock;
+    const c = this.cam.target;
+    const wrap = (v, lo, span) => lo + ((((v - lo) % span) + span) % span);
+    for (let i = 0; i < cfg.n; i++) {
+      const j = i * 3;
+      base[j] += (cfg.vx + Math.sin(t * 1.4 + i) * cfg.sway) * dt;
+      base[j + 1] += cfg.vy * dt;
+      base[j + 2] += Math.cos(t * 1.1 + i * 1.7) * cfg.sway * dt;
+      const x = wrap(base[j], c.x - 23, 46);
+      const y = wrap(base[j + 1], c.y - 7, 26);
+      const z = wrap(base[j + 2], c.z - 23, 46);
+      if (w.per === 2) pos.set([x, y, z, x - cfg.vx * 0.03, y - cfg.vy * 0.03, z], i * 6);
+      else pos.set([x, y, z], j);
+    }
+    w.geo.attributes.position.needsUpdate = true;
   }
 
   addSolid(mesh, cx, cy, cz, w, h, d, extra = {}) {
@@ -196,7 +303,7 @@ export class Game {
     const blockY = (y) => y + 2.8 + 0.6;
     return {
       spawn: (x, y, z) => this.spawnPoint.set(x, y, z),
-      island: (x, z, w, d, top, { h = 3 } = {}) => this.addSolid(M.makeIsland(w, h, d, theme), x, top - h / 2, z, w, h, d),
+      island: (x, z, w, d, top, { h = 3 } = {}) => this.addSolid(M.makeIsland(w, h, d, theme), x, top - h / 2, z, w, h, d, { deco: w * d >= 30 }),
       mover: (x, z, w, d, top, { axis = 'x', range = 3, speed = 1, phase = 0 } = {}) => {
         const s = this.addSolid(M.makeMover(w, 0.6, d), x, top - 0.3, z, w, 0.6, d, {
           delta: new THREE.Vector3(), axis, range, speed, phase, origin: new THREE.Vector3(x, top - 0.3, z),
@@ -217,7 +324,7 @@ export class Game {
         for (let i = 0; i < n; i++) this.addCoin(x + Math.cos((i / n) * 6.283) * r, y + 0.9, z + Math.sin((i / n) * 6.283) * r);
       },
       slime: (x, y, z, axis, range) => {
-        const mesh = M.makeSlime(theme.name === 'summit' ? 0x4dabf7 : theme.name === 'mesa' ? 0xe64980 : 0x58d64a);
+        const mesh = M.makeSlime(theme.slime);
         mesh.position.set(x, y, z);
         this.level.add(mesh);
         this.slimes.push({ mesh, origin: new THREE.Vector3(x, y, z), axis, range, t: Math.random() * 6, alive: true });
@@ -415,6 +522,7 @@ export class Game {
       this.animateHero(dt);
     }
     this.updateCamera(dt);
+    if (this.state !== 'paused') this.updateWeather(dt);
     this.syncHud();
     clearEdges();
     this.renderer.render(this.scene, this.camera);
