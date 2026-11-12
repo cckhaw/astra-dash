@@ -84,6 +84,12 @@ window.addEventListener('keydown', (e) => {
 });
 $('btn-pause').addEventListener('click', () => game.togglePause());
 $('btn-mute').addEventListener('click', () => ui.setMuted(audio.toggleMute()));
+// Browsers only allow sound after a user gesture, and phones suspend it
+// again whenever the page is backgrounded, so (re)unlock on every gesture.
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+  window.addEventListener(type, () => audio.unlock(), { capture: true, passive: true });
+}
 document.addEventListener('visibilitychange', () => {
+  if (document.hidden) audio.background();
   if (document.hidden && game.state === 'playing') game.togglePause();
 });
