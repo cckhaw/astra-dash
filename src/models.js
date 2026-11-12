@@ -598,3 +598,29 @@ export function makeBlobShadow() {
   m.renderOrder = 2;
   return m;
 }
+
+export function makeLandingRing() {
+  // Bright ring on a dark backing so it reads on grass, sand and snow alike.
+  const g = new THREE.Group();
+  const ring = (inner, outer, color, opacity, y) => {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(inner, outer, 28).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
+    );
+    m.position.y = y;
+    m.renderOrder = 3;
+    g.add(m);
+  };
+  ring(0.36, 0.68, 0x1b1f3b, 0.75, 0);
+  ring(0.43, 0.61, 0xfff27a, 1, 0.01);
+  return g;
+}
+
+export function makeDropLine() {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.035, 1, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  m.renderOrder = 3;
+  return m;
+}
