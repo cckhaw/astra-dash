@@ -32,7 +32,7 @@ export class Game {
     this.ui = ui;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
 
@@ -393,7 +393,7 @@ export class Game {
   beginLevel() {
     if (this.state !== 'story') return;
     this.state = 'playing';
-    audio.startMusic();
+    audio.startMusic(this.levelIndex);
     this.ui.screen(null);
     this.ui.toast(`World ${this.levelIndex + 1} — ${LEVELS[this.levelIndex].name}`);
   }
@@ -405,7 +405,7 @@ export class Game {
       this.ui.screen('pause');
     } else if (this.state === 'paused') {
       this.state = 'playing';
-      audio.startMusic();
+      audio.startMusic(this.levelIndex);
       this.ui.screen(null);
     }
   }
