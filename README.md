@@ -14,6 +14,8 @@ A responsive low-poly 3D platformer for the browser, built with [Three.js](https
 
 Cross five worlds that start on solid ground (with shallow rivers that only cost a splash) and build up to floating-island courses, hit `?` blocks from below (or pound them from above) for coins and Super Jump / Turbo Dash power-ups, which hop down to the ground beside the block, stomp slimes, avoid lava, and reach the flagpole before the timer runs out. 100 coins earn an extra life; the best score is kept in `localStorage`.
 
+Every world has its own season and weather: a spring valley with drifting blossom, rainy autumn hills, sandy tropical isles, a desert mesa at dusk with embers, and a snowy summit at night under an aurora.
+
 Each world opens with a short story card: Astra the star-scout is recovering the five Star Sparks shaken out of the Comet's engine, one per world.
 
 ## Develop
@@ -35,6 +37,7 @@ src/levels.js         level and theme definitions
 src/models.js         procedural meshes and textures
 src/audio.js          Web Audio synthesiser (music + effects)
 src/input.js          keyboard and touch input
+public/                logo, favicon and app icons
 scripts/prune-deployments.mjs   keeps only the newest Vercel deployment
 ```
 

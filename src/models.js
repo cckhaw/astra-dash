@@ -362,17 +362,142 @@ export function makeCheckpoint() {
   return g;
 }
 
+// Trees differ per world: spring pine, autumn broadleaf, palm, cactus,
+// snow-capped pine.
 export function makeTree(theme) {
   const g = new THREE.Group();
-  const trunk = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 1.6, 7), lam(0x8a5a2b)));
-  trunk.position.y = 0.8;
-  g.add(trunk);
-  const leaf = new THREE.MeshLambertMaterial({ color: theme.tree, flatShading: true });
-  [[1.5, 1.9, 1.5], [1.15, 2.9, 1.3], [0.75, 3.8, 1.1]].forEach(([r, y, h]) => {
-    const c = shadowed(new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), leaf), true, false);
-    c.position.y = y;
-    g.add(c);
-  });
+  const kind = theme.tree;
+  const bark = cached('bark', () => lam(0x8a5a2b));
+  const add = (geo, mat, x, y, z, cast = true) => {
+    const m = shadowed(new THREE.Mesh(geo, mat), cast, false);
+    m.position.set(x, y, z);
+    g.add(m);
+    return m;
+  };
+  if (kind === 'palm') {
+    const leaf = cached('palmLeaf', () => new THREE.MeshLambertMaterial({ color: 0x2fb344, flatShading: true, side: THREE.DoubleSide }));
+    let x = 0;
+    for (let i = 0; i < 5; i++) {
+      add(new THREE.CylinderGeometry(0.2 - i * 0.015, 0.25 - i * 0.015, 0.75, 7), bark, x, 0.37 + i * 0.7, 0).rotation.z = -i * 0.07;
+      x += 0.05 * i;
+    }
+    for (let i = 0; i < 7; i++) {
+      const frond = new THREE.Group();
+      frond.position.set(x, 3.45, 0);
+      frond.rotation.y = (i / 7) * Math.PI * 2;
+      const blade = shadowed(new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.2, 4), leaf), true, false);
+      blade.scale.z = 0.25;
+      blade.rotation.z = -Math.PI / 2 - 0.5;
+      blade.position.set(0.95, -0.3, 0);
+      frond.add(blade);
+      g.add(frond);
+    }
+    const nut = cached('coconut', () => lam(0x5c3b1e));
+    add(new THREE.SphereGeometry(0.17, 8, 6), nut, x + 0.18, 3.25, 0.1);
+    add(new THREE.SphereGeometry(0.17, 8, 6), nut, x - 0.15, 3.22, -0.12);
+  } else if (kind === 'cactus') {
+    const green = cached('cactus', () => new THREE.MeshLambertMaterial({ color: 0x4c9a3f, flatShading: true }));
+    add(new THREE.CapsuleGeometry(0.32, 1.7, 3, 8), green, 0, 1.15, 0);
+    for (const s of [-1, 1]) {
+      const y = s > 0 ? 1.5 : 1.1;
+      add(new THREE.CapsuleGeometry(0.16, 0.4, 3, 6), green, s * 0.5, y, 0).rotation.z = Math.PI / 2;
+      add(new THREE.CapsuleGeometry(0.16, 0.5, 3, 6), green, s * 0.75, y + 0.4, 0);
+    }
+    add(new THREE.IcosahedronGeometry(0.16, 0), cached('cactusFlower', () => lam(0xff5d8f)), 0, 2.4, 0);
+  } else if (kind === 'autumn') {
+    add(new THREE.CylinderGeometry(0.24, 0.34, 2, 7), bark, 0, 1, 0);
+    const cols = [0xe8590c, 0xf59f00, 0xc92a2a, 0xfab005];
+    [[1.3, 0, 2.7, 0], [1.0, 0.85, 2.3, 0.3], [0.95, -0.75, 2.4, -0.4], [0.85, 0.1, 3.6, 0.1]].forEach(([r, x, y, z], i) => {
+      add(new THREE.IcosahedronGeometry(r, 0), cached(`fall${i}`, () => new THREE.MeshLambertMaterial({ color: cols[i], flatShading: true })), x, y, z);
+    });
+  } else {
+    const snowy = kind === 'snowpine';
+    add(new THREE.CylinderGeometry(0.28, 0.36, 1.6, 7), bark, 0, 0.8, 0);
+    const leaf = cached(`pine${snowy}`, () => new THREE.MeshLambertMaterial({ color: snowy ? 0x1f6f5c : 0x2f9e44, flatShading: true }));
+    const snow = cached('snowcap', () => new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
+    [[1.5, 1.9, 1.5], [1.15, 2.9, 1.3], [0.75, 3.8, 1.1]].forEach(([r, y, h]) => {
+      add(new THREE.ConeGeometry(r, h, 7), leaf, 0, y, 0);
+      if (snowy) add(new THREE.ConeGeometry(r * 0.66, h * 0.62, 7), snow, 0, y + h * 0.21, 0, false);
+    });
+  }
+  return g;
+}
+
+// Small non-colliding ground decorations scattered over each world.
+export function makeProp(kind, theme) {
+  const g = new THREE.Group();
+  const flat = (color, extra = {}) => cached(`prop${color}${JSON.stringify(extra)}`, () => new THREE.MeshLambertMaterial({ color, flatShading: true, ...extra }));
+  const add = (geo, mat, x, y, z) => {
+    const m = shadowed(new THREE.Mesh(geo, mat), true, false);
+    m.position.set(x, y, z);
+    g.add(m);
+    return m;
+  };
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  switch (kind) {
+    case 'flower':
+      add(new THREE.CylinderGeometry(0.03, 0.03, 0.34, 5), flat(0x2f9e44), 0, 0.17, 0);
+      add(new THREE.IcosahedronGeometry(0.15, 0), flat(pick([0xff5d8f, 0xffffff, 0xffd23f, 0xb197fc, 0xff8787])), 0, 0.4, 0).scale.y = 0.55;
+      add(new THREE.SphereGeometry(0.06, 6, 5), flat(0xffb703), 0, 0.45, 0);
+      break;
+    case 'bush':
+      add(new THREE.IcosahedronGeometry(0.45, 0), flat(theme.bush), 0, 0.25, 0).scale.y = 0.7;
+      add(new THREE.IcosahedronGeometry(0.3, 0), flat(theme.bush), 0.35, 0.18, 0.1).scale.y = 0.7;
+      break;
+    case 'mushroom':
+      add(new THREE.CylinderGeometry(0.07, 0.09, 0.24, 6), flat(0xfff3e0), 0, 0.12, 0);
+      add(new THREE.SphereGeometry(0.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), flat(pick([0x9b5de5, 0x4dabf7, 0xf59f00])), 0, 0.22, 0).scale.y = 0.8;
+      break;
+    case 'pumpkin':
+      add(new THREE.SphereGeometry(0.28, 8, 6), flat(0xf76707), 0, 0.2, 0).scale.y = 0.75;
+      add(new THREE.CylinderGeometry(0.03, 0.05, 0.12, 5), flat(0x5c940d), 0, 0.44, 0);
+      break;
+    case 'leafpile':
+      add(new THREE.IcosahedronGeometry(0.5, 0), flat(pick([0xe8590c, 0xc92a2a, 0xf59f00])), 0, 0.06, 0).scale.y = 0.28;
+      break;
+    case 'starfish': {
+      const shape = new THREE.Shape();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 0.12 : 0.3;
+        const a = (i / 10) * Math.PI * 2;
+        shape[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r);
+      }
+      add(new THREE.ExtrudeGeometry(shape, { depth: 0.06, bevelEnabled: false }).rotateX(-Math.PI / 2), flat(pick([0xff6b6b, 0xff922b])), 0, 0.01, 0);
+      break;
+    }
+    case 'shell':
+      add(new THREE.ConeGeometry(0.16, 0.34, 7), flat(pick([0xffc9de, 0xfff0f6, 0xffe8cc])), 0, 0.12, 0).rotation.z = 1.2;
+      break;
+    case 'rock':
+      add(new THREE.DodecahedronGeometry(0.34, 0), flat(theme.rock), 0, 0.2, 0).scale.set(1 + Math.random() * 0.5, 0.7 + Math.random() * 0.5, 1);
+      break;
+    case 'drybush':
+      add(new THREE.IcosahedronGeometry(0.32, 0), flat(0xa9713c, { wireframe: true }), 0, 0.3, 0);
+      add(new THREE.CylinderGeometry(0.03, 0.04, 0.2, 4), flat(0x7a4f2a), 0, 0.08, 0);
+      break;
+    case 'smallcactus':
+      add(new THREE.CapsuleGeometry(0.14, 0.3, 3, 6), flat(0x4c9a3f), 0, 0.28, 0);
+      add(new THREE.IcosahedronGeometry(0.07, 0), flat(0xffd23f), 0, 0.6, 0);
+      break;
+    case 'snowman': {
+      const white = flat(0xffffff);
+      add(new THREE.SphereGeometry(0.3, 10, 8), white, 0, 0.26, 0);
+      add(new THREE.SphereGeometry(0.21, 10, 8), white, 0, 0.68, 0);
+      add(new THREE.ConeGeometry(0.04, 0.18, 5), flat(0xff922b), 0, 0.68, 0.26).rotation.x = Math.PI / 2;
+      for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.03, 5, 4), flat(0x1a1a2a), s * 0.08, 0.75, 0.18);
+      add(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 8), flat(0xe03131), 0, 0.5, 0);
+      break;
+    }
+    case 'crystal':
+      add(new THREE.OctahedronGeometry(0.26, 0), cached('ice', () => new THREE.MeshStandardMaterial({ color: 0x9be7ff, emissive: 0x2a7fb8, flatShading: true, transparent: true, opacity: 0.85, roughness: 0.2 })), 0, 0.36, 0).scale.y = 1.7;
+      break;
+    case 'snowmound':
+      add(new THREE.SphereGeometry(0.55, 9, 6, 0, Math.PI * 2, 0, Math.PI / 2), flat(0xffffff), 0, 0, 0).scale.y = 0.5;
+      break;
+    default:
+  }
+  g.rotation.y = Math.random() * Math.PI * 2;
+  g.scale.setScalar(0.85 + Math.random() * 0.4);
   return g;
 }
 
@@ -383,9 +508,9 @@ export function makeLava(w, d) {
   return m;
 }
 
-export function makeCloud() {
+export function makeCloud({ color = 0xffffff, emissive = 0x9aa7b8 } = {}) {
   const g = new THREE.Group();
-  const mat = cached('cloud', () => new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa7b8, flatShading: true, fog: false }));
+  const mat = cached(`cloud${color}`, () => new THREE.MeshLambertMaterial({ color, emissive, flatShading: true, fog: false }));
   const n = 3 + Math.floor(Math.random() * 3);
   for (let i = 0; i < n; i++) {
     const s = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + Math.random() * 1.6, 1), mat);
@@ -396,16 +521,57 @@ export function makeCloud() {
   return g;
 }
 
-export function makeRainbow() {
+// Arched bands in the sky: a rainbow by default, an aurora with other colours.
+export function makeArc(colors = ['#ff4d6d', '#ff9f1c', '#ffe14d', '#5fe36a', '#4dabf7', '#9b6bff'], { radius = 60, width = 1.1, opacity = 0.55 } = {}) {
   const g = new THREE.Group();
-  ['#ff4d6d', '#ff9f1c', '#ffe14d', '#5fe36a', '#4dabf7', '#9b6bff'].forEach((c, i) => {
-    const m = new THREE.Mesh(
-      new THREE.TorusGeometry(60 - i * 2.2, 1.1, 4, 40, Math.PI),
-      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.55, fog: false, depthWrite: false }),
-    );
-    g.add(m);
+  colors.forEach((c, i) => {
+    g.add(new THREE.Mesh(
+      new THREE.TorusGeometry(radius - i * width * 2, width, 4, 40, Math.PI),
+      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity, fog: false, depthWrite: false }),
+    ));
   });
   return g;
+}
+
+export function makeDisc(color, radius, glow = 0.25) {
+  const g = new THREE.Group();
+  const disc = (r, opacity) => new THREE.Mesh(new THREE.CircleGeometry(r, 32), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, fog: false, depthWrite: false }));
+  g.add(disc(radius * 1.7, glow * 0.5), disc(radius * 1.3, glow), disc(radius, 1));
+  g.children.forEach((c, i) => (c.position.z = i * 0.1));
+  return g;
+}
+
+export function makeStars(count = 420) {
+  const pos = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const e = 0.08 + Math.random() * 1.4;
+    pos.set([Math.cos(a) * Math.cos(e) * 300, Math.sin(e) * 300, Math.sin(a) * Math.cos(e) * 300], i * 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.9, depthWrite: false }));
+}
+
+export function makePeak(radius, height, color) {
+  const g = new THREE.Group();
+  const rock = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 6), new THREE.MeshLambertMaterial({ color, flatShading: true }));
+  rock.position.y = height / 2;
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.42, height * 0.42, 6), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
+  cap.position.y = height * 0.795;
+  g.add(rock, cap);
+  return g;
+}
+
+export function dotTexture() {
+  return canvasTex('dot', 32, (g) => {
+    const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.6, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 32, 32);
+  });
 }
 
 export function makeSky(top, bottom) {

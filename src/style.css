@@ -142,3 +142,6 @@ body.touch.in-game #touch { display: block; }
   h1 { font-size: 44px; }
   .tag { margin: 8px 0; }
 }
+h1.logo { -webkit-text-stroke: 0; text-shadow: none; line-height: 0; }
+h1.logo img { width: min(100%, 400px); height: auto; }
+@media (max-height: 460px) { h1.logo img { width: min(100%, 210px); } }

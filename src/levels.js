@@ -1,21 +1,62 @@
 // Level definitions. Each course runs away from the camera (towards -Z).
 // `b` is the builder exposed by the game; y values are the surface the
 // object stands on.
+// Each world has its own season, weather, terrain and plant life.
 const THEMES = {
-  meadow: {
-    name: 'meadow', skyTop: '#2f7df6', skyBottom: '#bfe6ff', fog: 0xbfe6ff, water: 0x1fa8e0,
-    topA: '#6fd44b', topB: '#58c23a', rim: 0x4caf32, sideA: '#b9793f', sideB: '#8f5a2c',
-    tree: 0x2f9e44, sun: 0xfff4d6, ambient: 1.0, rainbow: true,
+  // World 1: a bright spring morning with blossom on the breeze.
+  spring: {
+    name: 'spring', skyTop: '#2f7df6', skyBottom: '#bfe6ff', fog: 0xbfe6ff, fogNear: 55, fogFar: 160,
+    water: 0x1fa8e0, topA: '#6fd44b', topB: '#58c23a', rim: 0x4caf32, sideA: '#b9793f', sideB: '#8f5a2c',
+    tree: 'pine', bush: 0x37b24d, rock: 0x9aa3ad, slime: 0x58d64a,
+    props: ['flower', 'flower', 'flower', 'bush', 'mushroom'],
+    sun: 0xfff4d6, sunPower: 2.2, hemiPower: 1.6, hemiSky: 0xffffff, hemiGround: 0x8899aa,
+    clouds: { count: 14, color: 0xffffff, emissive: 0x9aa7b8, low: 12, size: 1 },
+    sky: { rainbow: true, disc: { color: 0xfff6b8, size: 13, glow: 0.3, x: 90, y: 95 } },
+    weather: 'petals', far: 'hills',
   },
+  // World 2: a rainy autumn afternoon under heavy cloud.
+  autumn: {
+    name: 'autumn', skyTop: '#55657f', skyBottom: '#cfc8bd', fog: 0xc4c0b8, fogNear: 30, fogFar: 105,
+    water: 0x4a7891, topA: '#d6a23c', topB: '#c68d2c', rim: 0xa9741f, sideA: '#8a5a3c', sideB: '#63402a',
+    tree: 'autumn', bush: 0xd9480f, rock: 0x8d8478, slime: 0xa970ff,
+    props: ['pumpkin', 'leafpile', 'leafpile', 'bush', 'mushroom'],
+    sun: 0xffe2bd, sunPower: 1.5, hemiPower: 1.45, hemiSky: 0xe6e9f2, hemiGround: 0x8a7a66,
+    clouds: { count: 34, color: 0xaeb4c0, emissive: 0x565c69, low: 11, size: 1.5 },
+    sky: {},
+    weather: 'rain', far: 'hills',
+  },
+  // World 3: tropical summer, white sand and palm trees over a turquoise sea.
+  tropic: {
+    name: 'tropic', skyTop: '#078bf0', skyBottom: '#baf3ff', fog: 0xbaf3ff, fogNear: 65, fogFar: 180,
+    water: 0x10c7bd, topA: '#f8e6a6', topB: '#f1d88c', rim: 0xe0c36c, sideA: '#dcb877', sideB: '#b98f52',
+    tree: 'palm', bush: 0x2fb344, rock: 0xc9b79a, slime: 0xe64980,
+    props: ['starfish', 'shell', 'shell', 'bush', 'rock'],
+    sun: 0xfffbe0, sunPower: 2.6, hemiPower: 1.7, hemiSky: 0xffffff, hemiGround: 0x9fd8d0,
+    clouds: { count: 7, color: 0xffffff, emissive: 0xa9b6c4, low: 22, size: 0.8 },
+    sky: { disc: { color: 0xfffbe0, size: 16, glow: 0.35, x: -70, y: 120 } },
+    weather: null, far: 'isles',
+  },
+  // World 4: a desert canyon at dusk above a magma sea, with drifting embers.
   mesa: {
-    name: 'mesa', skyTop: '#ff8a3d', skyBottom: '#ffe3b0', fog: 0xffdcae, water: 0xe8743b,
-    topA: '#f6d27a', topB: '#ecc260', rim: 0xd9a441, sideA: '#c9703d', sideB: '#9c4f28',
-    tree: 0x7cb342, sun: 0xffe2b8, ambient: 0.95, rainbow: false,
+    name: 'mesa', skyTop: '#7a2a5a', skyBottom: '#ffb35c', fog: 0xf5a96a, fogNear: 40, fogFar: 135,
+    water: 0xe0531f, waterGlow: 0x7a1f00, topA: '#e9a25c', topB: '#dc8e47', rim: 0xc46f33, sideA: '#b5552f', sideB: '#8a3b1f',
+    tree: 'cactus', bush: 0x8a9a3b, rock: 0xa85a36, slime: 0x2ec4b6,
+    props: ['rock', 'rock', 'drybush', 'smallcactus'],
+    sun: 0xffc89a, sunPower: 2.0, hemiPower: 1.45, hemiSky: 0xffd9b8, hemiGround: 0xa0523a,
+    clouds: { count: 10, color: 0xffb99a, emissive: 0xa8553a, low: 16, size: 1.2 },
+    sky: { disc: { color: 0xffe08a, size: 30, glow: 0.4, x: 25, y: 28 } },
+    weather: 'embers', far: 'mesas',
   },
-  summit: {
-    name: 'summit', skyTop: '#3b2a8c', skyBottom: '#f3a6d0', fog: 0xd9a6d6, water: 0x5b5bd6,
-    topA: '#ffffff', topB: '#dbeafe', rim: 0xbcd3f5, sideA: '#7c8fc4', sideB: '#56659a',
-    tree: 0x2c7a7b, sun: 0xffe0f0, ambient: 0.9, rainbow: true,
+  // World 5: a snowy winter night with stars, a moon and an aurora.
+  winter: {
+    name: 'winter', skyTop: '#060a2a', skyBottom: '#39409a', fog: 0x2b317a, fogNear: 45, fogFar: 140,
+    water: 0x1a2a70, topA: '#ffffff', topB: '#dbeafe', rim: 0xbcd3f5, sideA: '#7c8fc4', sideB: '#56659a',
+    tree: 'snowpine', bush: 0xe7f0ff, rock: 0x8f9cc9, slime: 0x4dabf7,
+    props: ['snowman', 'crystal', 'snowmound', 'snowmound', 'rock'],
+    sun: 0xc9d6ff, sunPower: 1.7, hemiPower: 1.5, hemiSky: 0xcdd8ff, hemiGround: 0x6a70a8,
+    clouds: { count: 7, color: 0x5d659c, emissive: 0x2b305f, low: 18, size: 1.2 },
+    sky: { stars: true, aurora: true, disc: { color: 0xf4f1ff, size: 11, glow: 0.3, x: -80, y: 110 } },
+    weather: 'snow', far: 'peaks',
   },
 };
 
@@ -36,11 +77,11 @@ export const LEVELS = [
     // World 1: solid ground all the way, with two small rivers to hop.
     // Falling in the water only costs a splash, not a life.
     name: 'Green Valley',
-    theme: THEMES.meadow,
+    theme: THEMES.spring,
     time: 360,
     story: [
       'The Comet has come down in a quiet green valley. The first Spark fell somewhere past the rivers and the old log bridge.',
-      'The slimes here are slow and the water is shallow, so it is a good place to find your feet. Hop the rivers, climb the terraces and raise the beacon.',
+      'The slimes here are slow and the water is shallow, so it is a good place to find your feet. It is a bright spring morning and the blossom is drifting. Hop the rivers, climb the terraces and raise the beacon.',
     ],
     route: [[0, -10], [0, -19], [0, -25], [0, -38], [0, -43], [0, -47], [0, -49.75], [0, -54], [0, -69.5], [0, -80], [0, -86], [0, -105.5], [0, -113], [0, -120], [0, -126], [0, -131]],
     land: true,
@@ -127,10 +168,10 @@ export const LEVELS = [
     // World 2: still on land, but with stepping stones, a raft, a lava
     // puddle and some climbing.
     name: 'Riverbend Hills',
-    theme: THEMES.meadow,
+    theme: THEMES.autumn,
     time: 380,
     story: [
-      'One Spark is back in the engine, and its glow points upriver, where the water runs wide and the hills smoulder.',
+      'One Spark is back in the engine, and its glow points upriver, where autumn has turned the hills gold and a steady rain is falling.',
       'The valley folk left stepping stones and rafts for travellers. Mind the lava puddles, ride the rafts and climb to the hilltop beacon.',
     ],
     route: [[0, -12.5], [-2, -16.5], [1.5, -20], [1, -24], [0, -36.5], 'm0', [0, -48], [0, -54.2], [0, -57], [0, -63.5], [-2.5, -68.5], [1, -72], [1, -77.5], [0, -98.5], 'm1', 'm2', [0, -112], [0, -118], [0, -122], [0, -128]],
@@ -220,10 +261,10 @@ export const LEVELS = [
   },
   {
     name: 'Sunny Isles',
-    theme: THEMES.meadow,
+    theme: THEMES.tropic,
     time: 400,
     story: [
-      'Two Sparks give the Comet just enough lift to hover, but the third has drifted up among the floating isles.',
+      'Two Sparks give the Comet just enough lift to hover, but the third has drifted out to sea, up among the sandy floating isles of the tropics.',
       'There is no riverbank to catch you up here, so watch your shadow when you jump. Checkpoint crystals will remember how far you got.',
     ],
     route: [[0, -13.5], 'm0', [0, -30], [4.5, -33], [8, -33], [13, -33], [13, -38], [11, -43], [13, -48], 'm1', [13, -57], [13, -63], [13, -70], [8, -76], [13, -82], 'm2', [13, -98], [13, -106.5], 'm3', 'm4', [13, -124], [13, -127]],
@@ -310,7 +351,7 @@ export const LEVELS = [
     theme: THEMES.mesa,
     time: 420,
     story: [
-      'The slimes have carried the fourth Spark off to their favourite sunbathing spot: a scorched mesa above a sea of magma.',
+      'The slimes have carried the fourth Spark off to their favourite sunbathing spot: a scorched desert mesa above a sea of magma, glowing under the setting sun.',
       'The stone here is cracked with lava and the platforms never sit still. Time your jumps, and use a ground-pound to clear a crowd.',
     ],
     route: [[0, -10], [-5, -15], [0, -21], [0, -28], [0, -30.5], [0, -36], [0, -39], 'm0', 'm1', [0, -57], [3, -59], [6, -59], [11, -59], [11, -64], [11, -71], [11, -77], [11, -83], [11, -88.5], [11, -99.5], 'm2', 'm3', [11, -121], [5, -121], [0, -121], [0, -127], [0, -130]],
@@ -398,10 +439,10 @@ export const LEVELS = [
   },
   {
     name: 'Starlight Summit',
-    theme: THEMES.summit,
+    theme: THEMES.winter,
     time: 440,
     story: [
-      'Only one Spark is missing. It landed at the very top of the frozen summit, where the sky is the colour of dusk and the whole slime swarm is waiting.',
+      'Only one Spark is missing. It landed at the very top of the frozen summit, where snow falls through the night under an aurora and the whole slime swarm is waiting.',
       'Everything you have learned comes together here: lifts, drifting platforms, lava and long jumps. Reach the last beacon and the Comet can fly again.',
     ],
     route: ['m0', [0, -15], 'm1', [0, -32.5], [-5, -33.5], [-5, -36], [-8, -36], [-13, -36], 'm2', [-13, -53.5], [-10.5, -56], [-13, -59], 'm3', [-13, -68], [-13, -73.5], 'm4', [-13, -86], 'm5', [-13, -98], [-9.5, -98], [-9.5, -101], [-6, -101], [-1, -101], 'm6', [-1, -118], [-1, -122]],
