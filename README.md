@@ -18,6 +18,14 @@ Every world has its own season and weather: a spring valley with drifting blosso
 
 Each world opens with a short story card: Astra the star-scout is recovering the five Star Sparks shaken out of the Comet's engine, one per world.
 
+## Worlds
+
+| | |
+| --- | --- |
+| ![Green Valley](docs/screenshots/world-1-green-valley.jpg) 1. Green Valley | ![Riverbend Hills](docs/screenshots/world-2-riverbend-hills.jpg) 2. Riverbend Hills |
+| ![Sunny Isles](docs/screenshots/world-3-sunny-isles.jpg) 3. Sunny Isles | ![Sunset Mesa](docs/screenshots/world-4-sunset-mesa.jpg) 4. Sunset Mesa |
+| ![Starlight Summit](docs/screenshots/world-5-starlight-summit.jpg) 5. Starlight Summit | |
+
 ## Develop
 
 ```bash
