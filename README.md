@@ -9,6 +9,7 @@ A responsive low-poly 3D platformer for the browser, built with [Three.js](https
 | Move | `W` `A` `S` `D` / arrows | slide left thumb anywhere |
 | Jump / double jump (hold for height) | `Space` | JUMP |
 | Ground-pound (in mid-air) | `Shift` | SLAM |
+| Hero power | `F` | JET / DASH |
 | Turn camera | `Q` `E` or drag | follows you automatically; drag to adjust |
 | Pause / mute | `P` / `M` | HUD buttons |
 
@@ -16,11 +17,22 @@ Cross five worlds that start on solid ground (with shallow rivers that only cost
 
 Every world has its own season and weather: a spring valley with drifting blossom, rainy autumn hills, sandy tropical isles, a desert mesa at dusk with embers, and a snowy summit at night under an aurora.
 
+## Heroes
+
+Pick a star-scout before each run. Both run, jump, double-jump with a flip and ground-pound.
+
+| Hero | Powers | Suits |
+| --- | --- | --- |
+| **Astra**, jetpack pilot | *Jet Boost*: a rocket burst straight up, once per jump. *Hover*: hold jump while falling to glide. | Gems floating high in beams of light |
+| **Dash**, speed runner | *Turbo Dash*: a burst of speed on the ground or in mid-air. *Smash*: a dash breaks gem crates and bowls over slimes; Dash also runs a little faster. | Gems sealed in crates |
+
+Every world hides six blue gems: three high overhead and three in crates, so each hero can find half on their own and the rest are a reason to replay as the other.
+
 Each world has its own tune, from a bouncy opener to a rainy-day waltz feel, an island calypso, a desert caravan and a driving finale.
 
 Jumping is assisted: while airborne a ring and drop line mark where you will land, the camera rises for a clearer view of the gap, you can steer and brake in mid-air, and narrowly clipping the edge of a ledge lifts you onto it.
 
-Each world opens with a short story card: Astra the star-scout is recovering the five Star Sparks shaken out of the Comet's engine, one per world.
+Each world opens with a short story card: the star-scouts are recovering the five Star Sparks shaken out of the Comet's engine, one per world.
 
 ## Worlds
 
@@ -46,6 +58,7 @@ index.html            HUD, menus and touch overlay
 src/main.js           UI wiring and bootstrap
 src/game.js           game loop, physics, camera, entities
 src/levels.js         level and theme definitions
+src/heroes.js         playable characters and their powers
 src/models.js         procedural meshes and textures
 src/audio.js          Web Audio synthesiser (music + effects)
 src/input.js          keyboard and touch input

@@ -22,13 +22,15 @@
         <div class="pill"><span class="lbl">SCORE</span><b id="h-score">000000</b></div>
         <div class="pill"><span class="ico heart">♥</span><b id="h-lives">3</b></div>
         <div class="pill"><span class="lbl">TIME</span><b id="h-time">000</b></div>
+        <div class="pill"><span class="ico gem"></span><b id="h-gems">0/6</b></div>
         <div class="pill wide"><span class="lbl">WORLD</span><b id="h-world">1/5</b></div>
-        <div class="pill wide"><span class="lbl">BEST</span><b id="h-high">000000</b></div>
+        <div class="pill wide best"><span class="lbl">BEST</span><b id="h-high">000000</b></div>
         <span class="spacer"></span>
         <button id="btn-mute" class="round" aria-label="Toggle sound">♪</button>
         <button id="btn-pause" class="round" aria-label="Pause">Ⅱ</button>
       </div>
       <div class="powers">
+        <div id="pw-special" class="power special on"><span id="pw-special-name">Jetpack</span><i></i></div>
         <div id="pw-jump" class="power jump"><span>▲ Super Jump</span><i></i></div>
         <div id="pw-speed" class="power speed"><span>» Turbo Dash</span><i></i></div>
       </div>
@@ -38,6 +40,7 @@
     <div id="touch">
       <div id="stick-zone"></div>
       <div id="dpad"><span class="a u">▲</span><span class="a d">▼</span><span class="a l">◀</span><span class="a r">▶</span><div id="dpad-nub"></div></div>
+      <button id="btn-power" class="tbtn">JET</button>
       <button id="btn-slam" class="tbtn">SLAM</button>
       <button id="btn-jump" class="tbtn">JUMP</button>
     </div>
@@ -46,15 +49,33 @@
       <div class="card">
         <h1 class="logo"><img src="/logo.svg" alt="Astra Dash" width="760" height="450" /></h1>
         <p class="tag">Hop the floating isles, bop the slimes, raise the flag!</p>
-        <button class="big" data-action="start">PLAY</button>
+        <button class="big" data-action="choose">PLAY</button>
         <p class="best">Best score: <b id="menu-high">0</b></p>
         <div class="help">
           <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
           <div><kbd>Space</kbd> jump · press again to double jump</div>
-          <div><kbd>Shift</kbd> ground-pound in mid-air</div>
+          <div><kbd>Shift</kbd> ground-pound in mid-air · <kbd>F</kbd> hero power</div>
           <div><kbd>Q</kbd><kbd>E</kbd> or drag to turn camera · <kbd>P</kbd> pause · <kbd>M</kbd> mute</div>
-          <div class="touch-only">Touch: slide your left thumb anywhere to move · JUMP and SLAM on the right · the camera follows you · landscape is roomiest</div>
+          <div class="touch-only">Touch: slide your left thumb anywhere to move · JUMP, SLAM and your hero's POWER on the right · the camera follows you · landscape is roomiest</div>
         </div>
+      </div>
+    </div>
+    <div id="screen-select" class="screen hidden">
+      <div class="card select">
+        <h2>Choose your star-scout</h2>
+        <div class="heroes">
+          <button class="hero" data-action="pick" data-hero="astra">
+            <img id="pic-astra" alt="Astra" width="300" height="360" />
+            <strong>Astra</strong><em id="tag-astra"></em>
+            <ul id="pow-astra"></ul>
+          </button>
+          <button class="hero" data-action="pick" data-hero="dash">
+            <img id="pic-dash" alt="Dash" width="300" height="360" />
+            <strong>Dash</strong><em id="tag-dash"></em>
+            <ul id="pow-dash"></ul>
+          </button>
+        </div>
+        <p class="common">Both can run, jump, double-jump with a flip, and ground-pound.</p>
       </div>
     </div>
     <div id="screen-story" class="screen hidden">
@@ -66,12 +87,13 @@
       </div>
     </div>
     <div id="screen-pause" class="screen hidden">
-      <div class="card"><h2>Paused</h2><button class="big" data-action="resume">RESUME</button><button class="ghost" data-action="start">Restart game</button></div>
+      <div class="card"><h2>Paused</h2><button class="big" data-action="resume">RESUME</button><button class="ghost" data-action="choose">Restart with a new hero</button></div>
     </div>
     <div id="screen-complete" class="screen hidden">
       <div class="card">
         <h2 id="c-title">Course clear!</h2>
         <p class="sparks" id="c-sparks"></p>
+        <p id="c-gems"></p>
         <div id="c-outro"></div>
         <p>Time bonus <b id="c-bonus">0</b></p>
         <p>Score <b id="c-score">0</b> · Best <b id="c-high">0</b></p>
@@ -79,7 +101,7 @@
       </div>
     </div>
     <div id="screen-gameover" class="screen hidden">
-      <div class="card"><h2>Game over</h2><p>Score <b id="g-score">0</b> · Best <b id="g-high">0</b></p><button class="big" data-action="start">TRY AGAIN</button></div>
+      <div class="card"><h2>Game over</h2><p>Score <b id="g-score">0</b> · Best <b id="g-high">0</b></p><button class="big" data-action="start">TRY AGAIN</button><button class="ghost" data-action="choose">Change hero</button></div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

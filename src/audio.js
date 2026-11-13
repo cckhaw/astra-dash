@@ -320,6 +320,19 @@ class AudioEngine {
     this.noise(t, 0.35, { vol: 0.3, freq: 1400, type: 'bandpass' });
     this.tone(500, t, 0.25, { type: 'sine', vol: 0.2, to: 120 });
   }
+  jet() {
+    const t = this.now;
+    this.noise(t, 0.4, { vol: 0.28, freq: 900, type: 'bandpass' });
+    this.tone(180, t, 0.35, { type: 'sawtooth', vol: 0.12, to: 620 });
+  }
+  dash() {
+    const t = this.now;
+    this.noise(t, 0.22, { vol: 0.25, freq: 2600, type: 'bandpass' });
+    this.tone(880, t, 0.2, { type: 'square', vol: 0.1, to: 220 });
+  }
+  gem() {
+    this.seq([84, 88, 91, 96], 0.07, { type: 'sine', vol: 0.3 });
+  }
   hurt() {
     this.tone(440, this.now, 0.4, { type: 'sawtooth', vol: 0.18, to: 70 });
   }

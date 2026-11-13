@@ -61,14 +61,14 @@ const THEMES = {
 };
 
 export const INTRO = [
-  'You are Astra, a young star-scout charting the night sky in your little ship, the Comet.',
+  'Astra and Dash are two young star-scouts charting the night sky in their little ship, the Comet.',
   'A swarm of grumpy slimes bumped the Comet off course and shook all five Star Sparks out of its engine. They tumbled down across the land below.',
-  'Without them the Comet cannot fly home. Follow each Spark\u2019s glow and raise the beacon flag at the end of every world to call it back.',
+  'Without them the Comet cannot fly home, so one of the crew must go after them on foot. Follow each Spark\u2019s glow and raise the beacon flag at the end of every world to call it back.',
 ];
 
 export const OUTRO = [
   'The fifth Spark clicks into place and the Comet\u2019s engine hums back to life.',
-  'The slimes watch from the summit as you lift off, scarf streaming, and one of them even waves.',
+  'The slimes watch from the summit as the Comet lifts off, and one of them even waves.',
   'Home is a long way off, but the sky is clear and every Spark is shining. Well flown, star-scout!',
 ];
 
@@ -89,6 +89,13 @@ export const LEVELS = [
     safeWater: true,
     build(b) {
       b.spawn(0, 0, 5);
+      // gems: high ones suit Astra's jet, crates suit Dash's smash
+      b.gemHigh(7, 0, -3);
+      b.gemHigh(-7, 0, -34);
+      b.gemHigh(8, 0, -103);
+      b.crate(-7, 0, -14);
+      b.crate(7, 0, -28);
+      b.crate(-6, 0, -115);
       b.island(0, -6, 22, 28, 0);
       b.tree(-8.5, 0, 5);
       b.tree(8.5, 0, 2);
@@ -181,6 +188,12 @@ export const LEVELS = [
     build(b) {
       b.spawn(0, 0, 4);
       b.island(0, -4, 20, 20, 0);
+      b.gemHigh(6, 0, -8);
+      b.gemHigh(7, 0, -26);
+      b.gemHigh(7, 0, -119);
+      b.crate(-7, 0, -2);
+      b.crate(-7, 0, -25);
+      b.crate(7.5, 0, -96);
       b.tree(-7.5, 0, 3);
       b.tree(7.5, 0, -2);
       b.coinLine(-3, 0, 0, 3, 0, 0, 4);
@@ -266,11 +279,18 @@ export const LEVELS = [
     story: [
       'Two Sparks give the Comet just enough lift to hover, but the third has drifted out to sea, up among the sandy floating isles of the tropics.',
       'There is no riverbank to catch you up here, so watch your shadow when you jump. Checkpoint crystals will remember how far you got.',
+      'Keep an eye out for blue gems too: some float high in beams of light, others are sealed in crates.',
     ],
     route: [[0, -13.5], 'm0', [0, -30], [4.5, -33], [8, -33], [13, -33], [13, -38], [11, -43], [13, -48], 'm1', [13, -57], [13, -63], [13, -70], [8, -76], [13, -82], 'm2', [13, -98], [13, -106.5], 'm3', 'm4', [13, -124], [13, -127]],
     build(b) {
       b.spawn(0, 0, 4);
       b.island(0, 0, 14, 14, 0);
+      b.gemHigh(-5, 0, -4);
+      b.gemHigh(4.5, 1.5, -30);
+      b.gemHigh(17, 8.6, -105);
+      b.crate(5, 0, 3);
+      b.crate(4.8, 1.5, -36.8);
+      b.crate(16.5, 7, -63);
       b.tree(-5, 0, 4.5);
       b.tree(5.2, 0, -5.2);
       b.coinLine(-3, 0, 1, 3, 0, 1, 4);
@@ -358,6 +378,12 @@ export const LEVELS = [
     build(b) {
       b.spawn(0, 0, 3);
       b.island(0, 0, 10, 10, 0);
+      b.gemHigh(3.5, 0, 3.5);
+      b.gemHigh(-5.5, 2.4, -30);
+      b.gemHigh(-2.5, 3, -62);
+      b.crate(3.8, 0, 0.5);
+      b.crate(6, 2.4, -26.8);
+      b.crate(2.8, 3, -56.3);
       b.mystery(-0.6, 0, -1.5, 'coin');
       b.mystery(0.6, 0, -1.5, 'speed');
       b.slime(0, 0, -3.5, 'x', 3.5);
@@ -449,6 +475,12 @@ export const LEVELS = [
     build(b) {
       b.spawn(0, 0, 2.5);
       b.island(0, 0, 9, 9, 0);
+      b.gemHigh(3, 0, -3);
+      b.gemHigh(-13, 10, -74);
+      b.gemHigh(2.5, 15.8, -117.5);
+      b.crate(-3, 0, -3);
+      b.crate(5.2, 3, -36);
+      b.crate(-16, 10, -68.5);
       b.mystery(-0.6, 0, -1, 'jump');
       b.mystery(0.6, 0, -1, 'coin');
       b.tree(-3.2, 0, 3);
