@@ -6,6 +6,7 @@ export const input = {
   jump: false, // held
   jumpPressed: false,
   slamPressed: false,
+  specialPressed: false,
   camTurn: 0, // keyboard camera turn (-1..1)
   camDrag: 0, // accumulated pointer drag (pixels)
   pausePressed: false,
@@ -46,6 +47,7 @@ export function initInput(canvas) {
       input.jumpPressed = true;
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.slamPressed = true;
+    if (e.code === 'KeyF' || e.code === 'KeyJ') input.specialPressed = true;
     if (e.code === 'KeyP' || e.code === 'Escape') input.pausePressed = true;
     if (e.code === 'KeyM') input.mutePressed = true;
     refreshAxes();
@@ -157,6 +159,11 @@ export function initInput(canvas) {
     input.slamPressed = true;
   });
 
+  document.getElementById('btn-power').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    input.specialPressed = true;
+  });
+
   const enableTouch = () => {
     input.touch = true;
     document.body.classList.add('touch');
@@ -169,6 +176,7 @@ export function initInput(canvas) {
 export function clearEdges() {
   input.jumpPressed = false;
   input.slamPressed = false;
+  input.specialPressed = false;
   input.pausePressed = false;
   input.mutePressed = false;
   input.camDrag = 0;

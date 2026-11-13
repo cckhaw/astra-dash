@@ -3,6 +3,7 @@ import { LEVELS, INTRO, OUTRO } from './levels.js';
 import * as M from './models.js';
 import { audio } from './audio.js';
 import { input, clearEdges } from './input.js';
+import { HEROES } from './heroes.js';
 
 const GRAVITY = 38;
 const JUMP_V = 13.5;
@@ -16,6 +17,12 @@ const WATER_Y = -9;
 const HS_KEY = 'astra-dash-highscore';
 const POWER_TIME = 12;
 const START_LIVES = 5;
+const HERO_KEY = 'astra-dash-hero';
+const GEM_HIGH = 8.3; // height of the high gems: above a double jump, within a jet boost
+const JET_FUEL = 1.1; // seconds of hover
+const DASH_TIME = 0.24;
+const DASH_SPEED = 24;
+const DASH_COOLDOWN = 0.6;
 
 const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
 
@@ -49,7 +56,13 @@ export class Game {
     this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.hemi, this.sun, this.sun.target);
 
-    this.hero = M.makeHero();
+    this.heroKind = 'astra';
+    try {
+      if (localStorage.getItem(HERO_KEY) === 'dash') this.heroKind = 'dash';
+    } catch {
+      /* storage unavailable */
+    }
+    this.hero = M.makeHero(this.heroKind);
     this.blob = M.makeBlobShadow();
     this.ring = M.makeLandingRing();
     this.beam = M.makeDropLine();
@@ -89,6 +102,7 @@ export class Game {
       pos: new THREE.Vector3(), vel: new THREE.Vector3(), grounded: false, ground: null,
       coyote: 0, buffer: 0, jumps: 0, cut: true, pounding: false, hover: 0, invuln: 0,
       facing: Math.PI, flip: 0, squash: 0, runT: 0, jumpPower: 0, speedPower: 0,
+      fuel: JET_FUEL, boostUsed: false, boostT: 0, jetting: false, dashT: 0, dashCd: 0, dashUsed: false, dashX: 0, dashZ: 0,
     };
   }
 
@@ -116,6 +130,8 @@ export class Game {
     this.solids = [];
     this.movers = [];
     this.pickups = [];
+    this.gems = 0;
+    this.gemsTotal = 0;
     this.slimes = [];
     this.lavas = [];
     this.checkpoints = [];
@@ -314,6 +330,19 @@ export class Game {
         });
         this.movers.push(s);
       },
+      // A gem floating high overhead, marked by a beam of light.
+      gemHigh: (x, y, z) => {
+        this.gemsTotal++;
+        this.addGem(x, y + GEM_HIGH, z);
+        const beam = M.makeGemBeam(GEM_HIGH - 0.6);
+        beam.position.set(x, y, z);
+        this.level.add(beam);
+      },
+      // A gem sealed in a crate that only a dash can smash.
+      crate: (x, y, z) => {
+        this.gemsTotal++;
+        this.addSolid(M.makeCrate(), x, y + 0.7, z, 1.4, 1.4, 1.4, { kind: 'crate' });
+      },
       mystery: (x, y, z, content) => this.addSolid(M.makeMystery(), x, blockY(y), z, 1.2, 1.2, 1.2, { kind: 'mystery', content, left: content === 'multi' ? 5 : 1 }),
       brick: (x, y, z) => this.addSolid(M.makeBrick(), x, blockY(y), z, 1.2, 1.2, 1.2, { kind: 'brick' }),
       coin: (x, y, z) => this.addCoin(x, y + 0.9, z),
@@ -360,6 +389,13 @@ export class Game {
     };
   }
 
+  addGem(x, y, z) {
+    const mesh = M.makeGem();
+    mesh.position.set(x, y, z);
+    this.level.add(mesh);
+    this.pickups.push({ type: 'gem', mesh, pos: mesh.position, phase: x + z, ready: true });
+  }
+
   addCoin(x, y, z) {
     const mesh = M.makeCoin();
     mesh.position.set(x, y, z);
@@ -370,7 +406,51 @@ export class Game {
   // ------------------------------------------------------------------
   // Flow
   // ------------------------------------------------------------------
-  startGame() {
+  setHero(kind) {
+    this.heroKind = HEROES[kind] ? kind : 'astra';
+    this.scene.remove(this.hero);
+    this.hero = M.makeHero(this.heroKind);
+    this.scene.add(this.hero);
+    try {
+      localStorage.setItem(HERO_KEY, this.heroKind);
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  // Small rendered pictures of each hero for the character-select screen.
+  portraits() {
+    const out = {};
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setSize(300, 360, false);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 2.2));
+    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    key.position.set(2, 4, 5);
+    scene.add(key);
+    const cam = new THREE.PerspectiveCamera(30, 300 / 360, 0.1, 50);
+    cam.position.set(0.9, 1.25, 4.3);
+    cam.lookAt(0, 0.86, 0);
+    for (const kind of Object.keys(HEROES)) {
+      const h = M.makeHero(kind);
+      h.rotation.y = 0.45;
+      const { armL, armR, legL, legR } = h.userData.parts;
+      armR.rotation.z = 2.2; // a friendly wave
+      armL.rotation.x = -0.3;
+      legL.rotation.x = 0.15;
+      legR.rotation.x = -0.15;
+      scene.add(h);
+      r.render(scene, cam);
+      out[kind] = r.domElement.toDataURL('image/png');
+      scene.remove(h);
+    }
+    r.dispose();
+    r.forceContextLoss();
+    return out;
+  }
+
+  startGame(kind = this.heroKind) {
+    if (kind !== this.heroKind || !this.hero.parent) this.setHero(kind);
     this.score = 0;
     this.coins = 0;
     this.lives = START_LIVES;
@@ -396,6 +476,13 @@ export class Game {
     audio.startMusic(this.levelIndex);
     this.ui.screen(null);
     this.ui.toast(`World ${this.levelIndex + 1} — ${LEVELS[this.levelIndex].name}`);
+  }
+
+  // Back to the idle backdrop (used when leaving a run to pick a hero).
+  toMenu() {
+    audio.stopMusic();
+    this.loadLevel(0);
+    this.state = 'menu';
   }
 
   togglePause() {
@@ -471,6 +558,7 @@ export class Game {
       this.syncHud(true);
       this.ui.screen('complete', {
         name: LEVELS[this.levelIndex].name, bonus, score: this.score, high: this.high,
+        gems: this.gems, gemsTotal: this.gemsTotal, hero: this.heroKind,
         last: this.levelIndex + 1 >= LEVELS.length, sparks: this.levelIndex + 1, total: LEVELS.length,
         outro: this.levelIndex + 1 >= LEVELS.length ? OUTRO : null,
       });
@@ -567,6 +655,7 @@ export class Game {
     p.pos[axis] += d;
     let head = null;
     let headDist = Infinity;
+    const smashed = [];
     for (const s of this.solids) {
       if (!this.overlaps(s)) continue;
       if (axis === 'y') {
@@ -581,6 +670,8 @@ export class Game {
             head = s;
           }
         }
+      } else if (p.dashT > 0 && s.kind === 'crate') {
+        smashed.push(s);
       } else {
         // Ledge assist: clipping the lip of a ledge by a small margin
         // lifts the player onto it instead of bouncing them off the side.
@@ -594,6 +685,7 @@ export class Game {
         p.vel[axis] = 0;
       }
     }
+    smashed.forEach((s) => this.smashCrate(s));
     if (head) {
       p.vel.y = Math.min(p.vel.y, -1);
       this.hitBlock(head);
@@ -613,7 +705,7 @@ export class Game {
     const yaw = this.cam.yaw;
     const fx = -Math.sin(yaw);
     const fz = -Math.cos(yaw);
-    const speed = RUN_SPEED * (p.speedPower > 0 ? 1.5 : 1);
+    const speed = RUN_SPEED * (p.speedPower > 0 ? 1.5 : 1) * (this.heroKind === 'dash' ? 1.12 : 1);
     let tx = (Math.cos(yaw) * input.x + fx * input.z) * speed;
     let tz = (-Math.sin(yaw) * input.x + fz * input.z) * speed;
     if (p.pounding) tx = tz = 0;
@@ -671,10 +763,55 @@ export class Game {
     if (p.pounding && p.hover > 0) {
       p.hover -= dt;
       p.vel.y = p.hover > 0 ? 0 : -34;
-    } else {
+    } else if (p.dashT <= 0) {
       // A little hang time at the top of a held jump gives a moment to aim.
       const hang = input.jump && Math.abs(p.vel.y) < 3.5 ? 0.55 : 1;
       p.vel.y = Math.max(p.vel.y - GRAVITY * hang * dt, -42);
+    }
+
+    // ---- hero powers ----
+    p.jetting = false;
+    p.dashCd -= dt;
+    p.boostT -= dt;
+    if (this.heroKind === 'astra') {
+      // Jet Boost: one rocket burst upward per jump.
+      if (input.specialPressed && !p.boostUsed && !p.pounding) {
+        p.boostUsed = true;
+        p.boostT = 0.4;
+        p.vel.y = 14.5;
+        p.cut = true;
+        p.grounded = false;
+        p.coyote = 0;
+        if (p.jumps === 0) p.jumps = 1;
+        audio.jet();
+        this.burst(p.pos, 0xffb02e, 12, 4);
+      }
+      // Hover: hold jump while falling to glide down on the jetpack.
+      if (input.jump && !p.grounded && !p.pounding && p.vel.y < -2.4 && p.fuel > 0) {
+        p.vel.y += (-2.4 - p.vel.y) * Math.min(1, dt * 12);
+        p.fuel -= dt;
+        p.jetting = true;
+        if (Math.random() < dt * 20) this.burst(p.pos, 0xffd27a, 1, 1.5);
+      }
+      if (p.boostT > 0) p.jetting = true;
+    } else {
+      // Turbo Dash: a burst of speed along the ground or through the air.
+      if (input.specialPressed && p.dashCd <= 0 && !p.dashUsed && !p.pounding) {
+        const len = Math.hypot(tx, tz);
+        p.dashX = len > 0.1 ? tx / len : Math.sin(p.facing);
+        p.dashZ = len > 0.1 ? tz / len : Math.cos(p.facing);
+        p.facing = Math.atan2(p.dashX, p.dashZ);
+        p.dashT = DASH_TIME;
+        p.dashCd = DASH_COOLDOWN;
+        p.dashUsed = !p.grounded;
+        audio.dash();
+      }
+      if (p.dashT > 0) {
+        p.dashT -= dt;
+        const v = p.dashT > 0 ? DASH_SPEED : speed;
+        p.vel.set(p.dashX * v, 0, p.dashZ * v);
+        if (Math.random() < dt * 60) this.burst(p.pos.clone().setY(p.pos.y + 0.6), 0xff8a1f, 1, 1.5);
+      }
     }
 
     const fallSpeed = p.vel.y;
@@ -691,6 +828,9 @@ export class Game {
       p.coyote = input.touch ? 0.2 : 0.15;
       p.jumps = 0;
       p.cut = true;
+      p.boostUsed = false;
+      p.dashUsed = false;
+      p.fuel = JET_FUEL;
       if (p.pounding) this.poundImpact();
       else if (!wasGrounded && fallSpeed < -8) {
         p.squash = 1;
@@ -758,9 +898,9 @@ export class Game {
       const dx = sp.x - p.pos.x;
       const dz = sp.z - p.pos.z;
       if (Math.abs(dx) > 0.9 || Math.abs(dz) > 0.9 || p.pos.y > sp.y + 0.85 || p.pos.y + PH < sp.y) continue;
-      if (p.pounding || (fallSpeed < -1 && p.pos.y > sp.y + 0.25)) {
+      if (p.pounding || p.dashT > 0 || (fallSpeed < -1 && p.pos.y > sp.y + 0.25)) {
         this.defeat(s);
-        if (!p.pounding) {
+        if (!p.pounding && p.dashT <= 0) {
           p.vel.y = input.jump ? JUMP_V * 1.05 : 9;
           p.cut = true;
           p.jumps = 1;
@@ -790,7 +930,7 @@ export class Game {
     audio.pound();
     this.burst(p.pos, 0xffffff, 14, 5);
     const g = p.ground;
-    if (g && g.kind) this.hitBlock(g);
+    if (g && g.kind && g.kind !== 'crate') this.hitBlock(g);
     for (const s of this.slimes) {
       if (!s.alive) continue;
       const sp = s.mesh.position;
@@ -805,6 +945,18 @@ export class Game {
     const color = s.mesh.children[0].material.color.getHex();
     this.burst(s.mesh.position.clone().setY(s.mesh.position.y + 0.3), color, 12, 4);
     this.tween(0.35, (k) => s.mesh.scale.set(1 + k * 0.6, Math.max(0.05, 1 - k * 1.2), 1 + k * 0.6), () => this.level.remove(s.mesh));
+  }
+
+  smashCrate(s) {
+    const i = this.solids.indexOf(s);
+    if (i < 0) return;
+    this.solids.splice(i, 1);
+    this.level.remove(s.mesh);
+    audio.brick();
+    this.cam.shake = 0.2;
+    this.addScore(100);
+    this.burst(s.mesh.position, 0xb9853f, 18, 7);
+    this.addGem(s.mesh.position.x, s.mesh.position.y + 0.2, s.mesh.position.z);
   }
 
   hitBlock(s) {
@@ -894,6 +1046,14 @@ export class Game {
   collect(c) {
     c.gone = true;
     this.level.remove(c.mesh);
+    if (c.type === 'gem') {
+      this.gems++;
+      audio.gem();
+      this.addScore(500);
+      this.ui.toast(`Gem ${this.gems} of ${this.gemsTotal}!`);
+      this.burst(c.pos, 0x4de8ff, 16, 5);
+      return;
+    }
     if (c.type === 'coin') {
       audio.coin();
       this.addCoins(1);
@@ -973,7 +1133,9 @@ export class Game {
   animateHero(dt) {
     const p = this.p;
     const h = this.hero;
-    const { body, armL, armR, legL, legR, tip, tails, eyes, head } = h.userData.parts;
+    const { body, armL, armR, legL, legR, tip, tails, eyes, head, flame } = h.userData.parts;
+    flame.visible = p.jetting;
+    flame.scale.y = 0.8 + Math.random() * 0.5;
     h.position.copy(p.pos);
     h.rotation.y = p.facing;
     h.visible = this.state !== 'gameover' && (p.invuln <= 0 || Math.floor(this.clock * 18) % 2 === 0);
@@ -984,7 +1146,7 @@ export class Game {
     if (!p.grounded) sy = 1 + Math.min(0.18, Math.abs(p.vel.y) * 0.012);
     const sxz = 1 / Math.sqrt(sy);
     body.scale.set(sxz, sy, sxz);
-    body.rotation.x = p.flip > 0 ? (1 - p.flip) * Math.PI * 2 : p.grounded ? Math.min(0.22, speed * 0.025) : 0;
+    body.rotation.x = p.dashT > 0 ? 0.75 : p.flip > 0 ? (1 - p.flip) * Math.PI * 2 : p.grounded ? Math.min(0.22, speed * 0.025) : 0;
     body.position.y = p.flip > 0 ? Math.sin((1 - p.flip) * Math.PI) * 0.2 : 0;
     tip.rotation.y += dt * 4;
     const blink = this.clock % 3.4 < 0.12 ? 0.12 : 1;
@@ -1078,6 +1240,8 @@ export class Game {
     this.ui.hud({
       coins: this.coins, score: this.score, lives: this.lives, time: Math.max(0, Math.ceil(this.time)),
       high: this.high, world: `${this.levelIndex + 1}/${LEVELS.length}`, jump: this.p.jumpPower / POWER_TIME, speed: this.p.speedPower / POWER_TIME,
+      gems: `${this.gems}/${this.gemsTotal}`, hero: this.heroKind,
+      special: this.heroKind === 'astra' ? Math.max(0, this.p.fuel) / JET_FUEL : 1 - Math.max(0, this.p.dashCd) / DASH_COOLDOWN,
     });
   }
 }
